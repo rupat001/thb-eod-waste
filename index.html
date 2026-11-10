@@ -29,8 +29,10 @@ html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45;padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
 .wrap{max-width:560px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line);padding-top:env(safe-area-inset-top,0px)}
-header.top .wrap{padding-block:12px;display:grid;gap:10px}
+header.top{background:var(--surface);padding-top:env(safe-area-inset-top,0px)}
+.stick{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line);box-shadow:0 6px 12px -10px rgba(0,0,0,.25)}
+.stick .wrap{padding-block:8px 10px;display:grid;gap:8px}
+header.top .wrap{padding-block:14px 6px;display:grid;gap:12px}
 h1{font-family:var(--display);font-weight:800;font-size:1.45rem;margin:0;letter-spacing:-.01em}
 .fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 label.f{display:grid;gap:4px;font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
@@ -44,14 +46,15 @@ main .wrap{padding-block:14px;display:grid;gap:18px}
 .banner.warn{background:var(--warn-soft);color:var(--warn)}
 .banner.ok{background:var(--ok-soft);color:var(--ok)}
 main .wrap{gap:36px}
-section.group{display:grid;gap:10px;scroll-margin-top:var(--headH,170px)}
+#groups{display:grid;gap:40px}
+section.group{display:grid;gap:10px;scroll-margin-top:var(--headH,120px)}
 .ghead{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding-inline:2px}
 section.group h2{font-family:var(--display);font-weight:800;font-size:1.4rem;line-height:1.1;letter-spacing:-.015em;color:var(--fg);margin:0}
 .gsum{font-size:.8rem;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 .gsum.on{color:var(--accent)}
 .jump{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-inline:-2px;padding:1px 2px}
 .jump::-webkit-scrollbar{display:none}
-.jump button{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:.82rem;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
+.jump button{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;min-height:40px;padding:8px 14px;font-size:.82rem;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
 .jump button .n{display:inline-block;min-width:18px;margin-left:5px;padding:0 5px;border-radius:999px;background:var(--accent);color:var(--accent-fg);font-size:.72rem;font-variant-numeric:tabular-nums}
 .jump button .n:empty{display:none}
 .row .name b{font-size:1rem}
@@ -70,7 +73,9 @@ section.group h2{font-family:var(--display);font-weight:800;font-size:1.4rem;lin
 :disabled{opacity:.55;cursor:not-allowed}
 .bar{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
 .bar .wrap{display:flex;align-items:center;gap:12px;padding-block:12px}
-.bar .sum{flex:1;min-width:0;font-size:.85rem;color:var(--muted)}
+.bar .sum{flex:1;min-width:0;font-size:.85rem;color:var(--muted);display:flex;flex-direction:column;gap:1px}
+.unsaved{display:inline-flex;align-items:center;gap:6px;color:var(--warn);font-weight:700;font-size:.8rem}
+.unsaved::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
 .bar .sum strong{color:var(--fg);font-size:1rem;font-variant-numeric:tabular-nums}
 .btn{border:0;border-radius:10px;padding:12px 18px;font-weight:600;cursor:pointer}
 .btn.primary{background:var(--accent);color:var(--accent-fg)}
@@ -80,15 +85,15 @@ section.group h2{font-family:var(--display);font-weight:800;font-size:1.4rem;lin
 .addform button{border:0;border-radius:8px;padding:0 14px;font-weight:600;cursor:pointer;background:var(--accent);color:var(--accent-fg)}
 .addform button.cancel{background:transparent;color:var(--muted);border:1px solid var(--line)}
 .tag{display:inline-block;font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:1px}
-.rm{border:0;background:transparent;color:var(--muted);font-size:.78rem;text-decoration:underline;cursor:pointer;padding:0;margin-left:6px}
+.rm{border:0;background:transparent;color:var(--muted);font-size:.8rem;text-decoration:underline;cursor:pointer;padding:8px 6px;margin:-8px 0 -8px 2px;min-height:32px}
 .tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:3px}
-.tabs button{border:0;background:transparent;border-radius:8px;padding:9px 8px;font-weight:600;color:var(--muted);cursor:pointer}
+.tabs button{border:0;background:transparent;border-radius:8px;min-height:44px;padding:10px 8px;font-weight:600;color:var(--muted);cursor:pointer}
 .tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-fg)}
 .done{text-align:center;padding-block:48px;display:grid;gap:12px;justify-items:center}
 .done h2{font-family:var(--display);font-weight:800;font-size:1.4rem;margin:0}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:.9rem;z-index:8}
 [hidden]{display:none!important}
-@media (max-width:380px){.fields{grid-template-columns:1fr}.step button{width:36px}.step input{width:48px}}
+@media (max-width:380px){.fields{grid-template-columns:1fr}h1{font-size:1.3rem}.step{gap:3px}.step button{width:40px}.step input{width:46px}.row{padding-left:12px;gap:8px}.row .name b{font-size:.95rem}}
 .banner.info{background:var(--accent-soft);color:var(--fg)}
 .banner .acts{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
 .banner .acts button{border:0;border-radius:8px;padding:8px 12px;font-weight:600;cursor:pointer;background:var(--accent);color:var(--accent-fg)}
@@ -119,11 +124,11 @@ input[type=date]::-webkit-date-and-time-value{text-align:left}
   .wrap{max-width:960px}
   body{font-size:16px;padding-bottom:calc(104px + env(safe-area-inset-bottom,0px))}
   h1{font-size:1.8rem}
-  header.top .wrap{grid-template-columns:minmax(260px,1fr) minmax(0,1.4fr);align-items:end;column-gap:20px;row-gap:12px;padding-block:16px}
-  header.top h1{grid-column:1 / -1}
-  .tabs{align-self:end}
+  header.top .wrap{grid-template-columns:auto minmax(0,1fr);align-items:end;column-gap:28px;row-gap:10px;padding-block:18px 8px}
+  .fields{max-width:560px;justify-self:end;width:100%}
+  .stick .wrap{grid-template-columns:minmax(240px,320px) minmax(0,1fr);align-items:center;column-gap:20px;padding-block:10px 12px}
   .tabs button{padding:12px 10px;font-size:1rem}
-  .status,.jump{grid-column:1 / -1}
+  .status{grid-column:1 / -1}
   .jump button{padding:8px 16px;font-size:.9rem}
   section.group h2{font-size:1.7rem}
   .gsum{font-size:.9rem}
@@ -147,7 +152,7 @@ input[type=date]::-webkit-date-and-time-value{text-align:left}
 
 /* ---- Phones turned sideways: don't let the sticky header eat the screen ---- */
 @media (max-height:520px) and (orientation:landscape){
-  header.top{position:static}
+  .stick{position:static;box-shadow:none}
   section.group{scroll-margin-top:12px}
   .bar .wrap{padding-block:8px}
 }
@@ -157,10 +162,6 @@ input[type=date]::-webkit-date-and-time-value{text-align:left}
 <header class="top">
   <div class="wrap">
     <h1 id="title">Production Sheet</h1>
-    <div class="tabs" role="tablist" aria-label="What are you entering">
-      <button type="button" role="tab" id="tab_produced" aria-selected="true">Produced</button>
-      <button type="button" role="tab" id="tab_waste" aria-selected="false">Waste</button>
-    </div>
     <div class="fields">
       <label class="f" for="date">Date
         <input type="date" id="date">
@@ -170,9 +171,17 @@ input[type=date]::-webkit-date-and-time-value{text-align:left}
       </label>
     </div>
     <div class="status" id="status"><span class="dot"></span><span id="statusText">Loading…</span></div>
-    <nav class="jump" id="jump" aria-label="Jump to category"></nav>
   </div>
 </header>
+<div class="stick" id="stick">
+  <div class="wrap">
+    <div class="tabs" role="tablist" aria-label="What are you entering">
+      <button type="button" role="tab" id="tab_produced" aria-selected="true">Produced</button>
+      <button type="button" role="tab" id="tab_waste" aria-selected="false">Waste</button>
+    </div>
+    <nav class="jump" id="jump" aria-label="Jump to category"></nav>
+  </div>
+</div>
 
 <main id="form">
   <div class="wrap">
@@ -192,7 +201,7 @@ input[type=date]::-webkit-date-and-time-value{text-align:left}
 
 <div class="bar" id="bar">
   <div class="wrap">
-    <div class="sum"><strong id="cnt">0</strong> items · <span id="tot">0</span> pieces</div>
+    <div class="sum"><span id="unsaved" class="unsaved" hidden>Not saved</span><span><strong id="cnt">0</strong> items · <span id="tot">0</span> pieces</span></div>
     <button class="btn primary" id="submit" type="button">Save</button>
   </div>
 </div>
@@ -352,6 +361,7 @@ function paintStatus(){
   if(!ready){tx.textContent="Not connected to the Sheet yet";return}
   if(loadedDate===null){tx.textContent="Loading saved numbers…";return}
   const dirty=isDirty(mode);
+  $("unsaved").hidden=!dirty;
   if(dirty){el.classList.add("dirty");tx.textContent=s.info?"Unsaved changes — tap "+M.btn:"Not saved yet";}
   else if(s.info){el.classList.add("saved");tx.textContent=M.word+" saved "+fmtTime(s.info.savedAt)+(s.info.preparedBy?" by "+s.info.preparedBy:"")}
   else tx.textContent="No "+M.word.toLowerCase()+" saved for "+fmtDate(loadedDate)+" yet";
@@ -477,7 +487,7 @@ async function save(){
 $("submit").onclick=save;
 
 // ---------- start ----------
-function fitHeader(){document.documentElement.style.setProperty("--headH",(document.querySelector("header.top").offsetHeight+12)+"px")}
+function fitHeader(){document.documentElement.style.setProperty("--headH",($("stick").offsetHeight+14)+"px")}
 addEventListener("resize",fitHeader);
 addEventListener("beforeunload",e=>{if(["produced","waste"].some(isDirty)){e.preventDefault();e.returnValue=""}});
 if(!ready)$("setup").hidden=false;

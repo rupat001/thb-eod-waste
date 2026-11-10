@@ -37,22 +37,24 @@ header.top .wrap{padding-block:14px;display:grid;gap:10px}
 .trow{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 h1{font-family:var(--display);font-weight:800;font-size:1.5rem;margin:0;letter-spacing:-.01em}
 .tools{display:flex;gap:8px;align-items:center}
-select,.ghost{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 10px;cursor:pointer}
+select,.ghost{border:1px solid var(--line);background:var(--bg);border-radius:8px;min-height:44px;padding:8px 12px;cursor:pointer}
 .counts{display:flex;gap:8px;flex-wrap:wrap}
 .chip{display:inline-flex;align-items:center;gap:6px;font-size:.82rem;font-weight:600;padding:5px 10px;border-radius:999px;background:var(--bg);color:var(--muted)}
 .chip b{font-variant-numeric:tabular-nums}
 .chip.warn{background:var(--warn-soft);color:var(--warn)}
 .chip.bad{background:var(--bad-soft);color:var(--bad)}
 .chip.ok{background:var(--ok-soft);color:var(--ok)}
-main .wrap{padding-block:16px 40px;display:grid;gap:14px}
+main .wrap{padding-block:16px 40px;display:grid;gap:16px}
+#days{display:grid;gap:16px}
 .note{font-size:.85rem;color:var(--muted);margin:0}
 .banner{border-radius:10px;padding:10px 12px;font-size:.9rem;background:var(--warn-soft);color:var(--warn)}
 .day{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
 .day.attn{border-color:var(--warn)}
-.dhead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:12px 16px 4px}
+.dhead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:14px 16px 8px}
 .dhead h2{font-family:var(--display);font-weight:800;font-size:1.2rem;margin:0}
 .dhead .rel{font-size:.8rem;color:var(--muted)}
-.line{display:grid;grid-template-columns:90px 1fr auto;align-items:center;gap:10px;padding:10px 16px;border-top:1px solid var(--line)}
+.line{display:grid;grid-template-columns:96px minmax(0,1fr) auto auto;grid-template-areas:"kind meta pill acts";align-items:center;column-gap:12px;row-gap:8px;padding:12px 16px;border-top:1px solid var(--line)}
+.line .kind{grid-area:kind}.line .meta{grid-area:meta}.line .pillslot{grid-area:pill;display:flex;justify-content:flex-end}.line .acts{grid-area:acts}
 .line:first-of-type{border-top:0}
 .line .kind{font-weight:600}
 .line .meta{font-size:.82rem;color:var(--muted);min-width:0}
@@ -66,10 +68,10 @@ main .wrap{padding-block:16px 40px;display:grid;gap:14px}
 .p-entered{background:var(--ok-soft);color:var(--ok)}
 .p-changed{background:var(--bad-soft);color:var(--bad)}
 .p-recorded{background:var(--bg);color:var(--muted)}
-.btn{border:0;border-radius:8px;padding:8px 14px;font-weight:600;cursor:pointer}
+.btn{border:0;border-radius:8px;min-height:44px;padding:10px 16px;font-weight:600;cursor:pointer}
 .btn.primary{background:var(--accent);color:var(--accent-fg)}
 .btn.okb{background:var(--ok);color:var(--surface)}
-.btn.link{background:transparent;color:var(--accent);padding:8px 6px}
+.btn.link{background:transparent;color:var(--accent);padding:10px 12px}
 .btn:disabled{opacity:.5;cursor:not-allowed}
 .detail{border-top:1px solid var(--line);padding:12px 16px 16px;background:var(--bg);display:grid;gap:12px}
 .tbl{overflow-x:auto}
@@ -88,9 +90,14 @@ td.hi{color:var(--warn);font-weight:700}
 .pincard input{font-size:1.6rem;letter-spacing:.4em;text-align:center;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg);width:100%}
 .pincard .btn{padding:12px}
 .pinmsg{margin:0;min-height:1.2em;font-size:.88rem;color:var(--warn);font-weight:600}
-@media (max-width:560px){
-  .line{grid-template-columns:1fr auto;grid-template-areas:"kind acts" "meta meta"}
-  .line .kind{grid-area:kind}.line .meta{grid-area:meta}.line .acts{grid-area:acts}
+@media (max-width:620px){
+  .line{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"kind pill" "meta meta" "acts acts"}
+  .line .acts{justify-content:stretch;gap:8px}
+  .line .acts .btn{flex:1}
+  .line .acts .btn.link{flex:0 0 auto;border:1px solid var(--line);background:var(--surface)}
+  .counts{gap:6px}
+  .chip{font-size:.78rem;padding:4px 9px}
+  .trow{row-gap:10px}
 }
 @media (min-width:700px){body{font-size:16px}h1{font-size:1.8rem}.dhead h2{font-size:1.35rem}.btn{padding:10px 16px}}
 </style>
@@ -194,15 +201,16 @@ function lineFor(kind,r,key,idx){
   l.appendChild(el("div","kind",kind));
   const meta=el("div","meta");
   const acts=el("div","acts");
+  let pillEl;
   if(!r){
     meta.textContent=idx===0?"Not submitted yet today":"Never submitted";
-    acts.appendChild(el("span","pill p-missing",idx===0?"Not yet":"Missing"));
+    pillEl=el("span","pill p-missing",idx===0?"Not yet":"Missing");
   }else{
     const items=Object.values(r.counts).filter(v=>v>0).length+(r.extras||[]).length;
     const tot=Object.values(r.counts).reduce((a,b)=>a+b,0)+(r.extras||[]).reduce((a,x)=>a+x.count,0);
     const who=el("span","who",r.preparedBy||"—");
     meta.append(who,document.createTextNode(" · "+items+(items===1?" item · ":" items · ")+tot+" pcs · saved "+fmtTime(r.savedAt)));
-    acts.appendChild(el("span","pill "+statusClass(r.status),statusLabel(r.status)));
+    pillEl=el("span","pill "+statusClass(r.status),statusLabel(r.status));
     if(kind==="Waste"&&(r.status==="Submitted"||r.status==="Changed after entry")){
       const b=el("button","btn okb","Approve");b.type="button";b.onclick=()=>setStatus(r,"Approved",b);acts.appendChild(b);
     }
@@ -216,7 +224,8 @@ function lineFor(kind,r,key,idx){
       acts.appendChild(v);
     }
   }
-  l.append(meta,acts);return l;
+  const ps=el("div","pillslot");ps.appendChild(pillEl);
+  l.append(meta,ps,acts);if(!acts.childNodes.length)acts.hidden=true;return l;
 }
 function byDateHasWaste(key){return rows.some(r=>r.date===key&&r.type==="Waste")}
 
