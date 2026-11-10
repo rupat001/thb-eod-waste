@@ -152,13 +152,15 @@ let showPin=function(){};
 const API=EOD.makeApi(pin,function(m){showPin(m)});
 const api=API.call;
 showPin=EOD.wirePinGate(pin,async function(){const r=await api("list",{days:1});return !!r.ok},function(){load()});
-let rows=[], open=new Set(), busy=false;
+let rows=[], open=new Set(), busy=false, loadSeq=0;
 
 async function load(){
   if(!pin.get()){showPin();return}
   $("refresh").disabled=true;$("err").hidden=true;
   try{
+    const seq=++loadSeq;
     const r=await api("list",{days:rangeDays()});
+    if(seq!==loadSeq)return; // a newer load (e.g. range changed) is on its way; ignore this older answer
     if(!r.ok)throw new Error(r.error);
     rows=r.rows;render();
   }catch(e){if(!e.pin){$("err").hidden=false;$("err").textContent="Couldn't load from the Sheet. Check the connection and tap Refresh."}}
