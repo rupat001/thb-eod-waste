@@ -493,6 +493,10 @@ addEventListener("beforeunload",e=>{if(["produced","waste"].some(isDirty)){e.pre
 if(!ready)$("setup").hidden=false;
 try{const w=localStorage.getItem("eodw_name");if(w)$("who").value=w}catch(e){}
 $("date").min=CFG.START_DATE;$("date").max=todayStr();
+// Keep "today" current on devices left open overnight (store iPad).
+function refreshMax(){$("date").max=todayStr()}
+$("date").addEventListener("focus",refreshMax);$("date").addEventListener("click",refreshMax);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)refreshMax()});
 $("date").value=todayStr();
 setMode("produced");
 loadDay($("date").value);
