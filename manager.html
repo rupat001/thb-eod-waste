@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>EOD Waste – Manager</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="EOD Manager">
+<meta name="theme-color" content="#6b3a1f">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: one review column — sticky header with counts, a card per day (Produced + Waste), details expand in place */
+:root{
+  --bg:#f3f4f2; --surface:#ffffff; --fg:#1d1f1c; --muted:#62675f; --line:#dcdfd8;
+  --accent:#6b3a1f; --accent-fg:#ffffff; --accent-soft:#f1e6dd;
+  --ok:#1f7a4a; --ok-soft:#dcf1e4; --warn:#9a6200; --warn-soft:#fbeccc; --bad:#b3261e; --bad-soft:#fbe1df; --info:#2b5c9e; --info-soft:#dfe9f7;
+  --display:"Bricolage Grotesque","Inter",system-ui,sans-serif; --body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#141613; --surface:#1d201c; --fg:#ecefe9; --muted:#a2a89e; --line:#30342e;
+  --accent:#e0a37d; --accent-fg:#1d120b; --accent-soft:#3a2a1f;
+  --ok:#6fd39c; --ok-soft:#173826; --warn:#f0c062; --warn-soft:#3b2f14; --bad:#ff8a80; --bad-soft:#3d1d1a; --info:#8db8f0; --info-soft:#1a2b42; color-scheme:dark}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+button,input,select{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+[hidden]{display:none!important}
+.wrap{max-width:900px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+header.top .wrap{padding-block:14px;display:grid;gap:10px}
+.trow{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font-family:var(--display);font-weight:800;font-size:1.5rem;margin:0;letter-spacing:-.01em}
+.tools{display:flex;gap:8px;align-items:center}
+select,.ghost{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 10px;cursor:pointer}
+.counts{display:flex;gap:8px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:.82rem;font-weight:600;padding:5px 10px;border-radius:999px;background:var(--bg);color:var(--muted)}
+.chip b{font-variant-numeric:tabular-nums}
+.chip.warn{background:var(--warn-soft);color:var(--warn)}
+.chip.bad{background:var(--bad-soft);color:var(--bad)}
+.chip.ok{background:var(--ok-soft);color:var(--ok)}
+main .wrap{padding-block:16px 40px;display:grid;gap:14px}
+.note{font-size:.85rem;color:var(--muted);margin:0}
+.banner{border-radius:10px;padding:10px 12px;font-size:.9rem;background:var(--warn-soft);color:var(--warn)}
+.day{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.day.attn{border-color:var(--warn)}
+.dhead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:12px 16px 4px}
+.dhead h2{font-family:var(--display);font-weight:800;font-size:1.2rem;margin:0}
+.dhead .rel{font-size:.8rem;color:var(--muted)}
+.line{display:grid;grid-template-columns:90px 1fr auto;align-items:center;gap:10px;padding:10px 16px;border-top:1px solid var(--line)}
+.line:first-of-type{border-top:0}
+.line .kind{font-weight:600}
+.line .meta{font-size:.82rem;color:var(--muted);min-width:0}
+.line .meta .who{color:var(--fg);font-weight:500}
+.acts{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:.76rem;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.pill::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.p-missing{background:var(--bad-soft);color:var(--bad)}
+.p-submitted{background:var(--warn-soft);color:var(--warn)}
+.p-approved{background:var(--info-soft);color:var(--info)}
+.p-entered{background:var(--ok-soft);color:var(--ok)}
+.p-changed{background:var(--bad-soft);color:var(--bad)}
+.p-recorded{background:var(--bg);color:var(--muted)}
+.btn{border:0;border-radius:8px;padding:8px 14px;font-weight:600;cursor:pointer}
+.btn.primary{background:var(--accent);color:var(--accent-fg)}
+.btn.okb{background:var(--ok);color:var(--surface)}
+.btn.link{background:transparent;color:var(--accent);padding:8px 6px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.detail{border-top:1px solid var(--line);padding:12px 16px 16px;background:var(--bg);display:grid;gap:12px}
+.tbl{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.88rem;font-variant-numeric:tabular-nums}
+th,td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left;white-space:normal}
+th{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+tr.grp td{font-weight:700;color:var(--accent);padding-top:12px;border-bottom:0;text-align:left}
+td.hi{color:var(--warn);font-weight:700}
+.kv{display:grid;gap:4px;font-size:.86rem}
+.kv b{font-weight:600}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:.9rem;z-index:8;max-width:calc(100% - 32px)}
+.pingate{position:fixed;inset:0;z-index:20;background:var(--bg);display:grid;place-items:center;padding:16px}
+.pincard{width:100%;max-width:340px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px;display:grid;gap:12px;text-align:center}
+.pincard h2{font-family:var(--display);font-weight:800;font-size:1.5rem;margin:0}
+.pincard input{font-size:1.6rem;letter-spacing:.4em;text-align:center;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg);width:100%}
+.pincard .btn{padding:12px}
+.pinmsg{margin:0;min-height:1.2em;font-size:.88rem;color:var(--warn);font-weight:600}
+@media (max-width:560px){
+  .line{grid-template-columns:1fr auto;grid-template-areas:"kind acts" "meta meta"}
+  .line .kind{grid-area:kind}.line .meta{grid-area:meta}.line .acts{grid-area:acts}
+}
+@media (min-width:700px){body{font-size:16px}h1{font-size:1.8rem}.dhead h2{font-size:1.35rem}.btn{padding:10px 16px}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="trow">
+      <h1>Manager review</h1>
+      <div class="tools">
+        <label for="range" class="note" style="margin:0">Show</label>
+        <select id="range"><option value="7">Last 7 days</option><option value="14" selected>Last 14 days</option><option value="30">Last 30 days</option><option value="all">Since start</option></select>
+        <button class="ghost" id="refresh" type="button">Refresh</button>
+      </div>
+    </div>
+    <div class="counts" id="counts"><span class="chip">Loading…</span></div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <p class="note">Check each day's waste, then tap <b>Approve</b>. Approved days are ready for Claude to enter into ClearView ("enter approved waste"). Production is for your records only.</p>
+    <div id="err" class="banner" hidden></div>
+    <div id="days"></div>
+  </div>
+</main>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<div class="pingate" id="pinGate" hidden role="dialog" aria-modal="true" aria-labelledby="pinTitle">
+  <form class="pincard" id="pinForm" autocomplete="off">
+    <h2 id="pinTitle">Manager PIN</h2>
+    <p class="note">Asked once on this device. Use the manager PIN, not the staff PIN.</p>
+    <input type="password" id="pinIn" inputmode="numeric" pattern="[0-9]*" maxlength="8" placeholder="••••" aria-label="Manager PIN">
+    <p class="pinmsg" id="pinMsg" role="alert"></p>
+    <button class="btn primary" id="pinGo" type="submit">Unlock</button>
+  </form>
+</div>
+
+<script src="config.js"></script>
+<script src="items.js"></script>
+<script src="common.js"></script>
+<script>
+// Item list: items.js.  Sheet link + start date: config.js.  Shared helpers: common.js.
+const CFG=window.EOD_CONFIG;
+const GROUPS=window.EOD_ITEMS.map(([g,items])=>[g,items.map(([k,label,note])=>[k,note?label+" ("+note.replace(/, as counted$/,"")+")":label])]);
+const $=EOD.$, toast=EOD.toast, ymd=EOD.ymd;
+const fmtDate=s=>EOD.fmtDate(s,true), fmtTime=EOD.fmtDateTime;
+function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e}
+function rel(s){const t=new Date();t.setHours(0,0,0,0);const n=Math.round((t-EOD.parseYmd(s))/864e5);return n===0?"Today":n===1?"Yesterday":n+" days ago"}
+const pin=EOD.makePin("eodw_mgr_pin");
+let showPin=function(){};
+const API=EOD.makeApi(pin,function(m){showPin(m)});
+const api=API.call;
+showPin=EOD.wirePinGate(pin,async function(){const r=await api("list",{days:1});return !!r.ok},function(){load()});
+let rows=[], open=new Set(), busy=false;
+
+async function load(){
+  if(!pin.get()){showPin();return}
+  $("refresh").disabled=true;$("err").hidden=true;
+  try{
+    const r=await api("list",{days:rangeDays()});
+    if(!r.ok)throw new Error(r.error);
+    rows=r.rows;render();
+  }catch(e){if(!e.pin){$("err").hidden=false;$("err").textContent="Couldn't load from the Sheet. Check the connection and tap Refresh."}}
+  finally{$("refresh").disabled=false}
+}
+
+function statusClass(s){return {Submitted:"p-submitted",Approved:"p-approved",Entered:"p-entered","Changed after entry":"p-changed",Recorded:"p-recorded"}[s]||"p-recorded"}
+function statusLabel(s){return {Submitted:"Waiting for you",Approved:"Approved",Entered:"In ClearView","Changed after entry":"Changed after entry",Recorded:"Recorded"}[s]||s}
+
+function rangeDays(){const sinceStart=Math.round((EOD.parseYmd(EOD.todayStr())-EOD.parseYmd(CFG.START_DATE))/864e5)+1;const v=$("range").value;return Math.max(1,Math.min(v==="all"?sinceStart:Number(v),sinceStart))}
+function render(){
+  const n=rangeDays(), today=new Date();
+  const byDate={};for(const r of rows){(byDate[r.date]=byDate[r.date]||{})[r.type]=r}
+  let waiting=0,changed=0,missing=0,ready=0;
+  const box=$("days");box.textContent="";
+  for(let i=0;i<n;i++){
+    const d=new Date(today);d.setDate(d.getDate()-i);const key=ymd(d);
+    const e=byDate[key]||{};const P=e.Produced,W=e.Waste;
+    if(W&&W.status==="Submitted")waiting++;
+    if(W&&W.status==="Changed after entry")changed++;
+    if(W&&W.status==="Approved")ready++;
+    if(i>0&&(!P||!W))missing++;
+    const card=el("section","day");if(W&&/Submitted|Changed/.test(W.status))card.classList.add("attn");
+    const h=el("div","dhead");h.append(el("h2",null,fmtDate(key)),el("span","rel",rel(key)));card.appendChild(h);
+    card.appendChild(lineFor("Produced",P,key,i));
+    card.appendChild(lineFor("Waste",W,key,i));
+    if(open.has(key)&&(P||W))card.appendChild(detail(P,W));
+    box.appendChild(card);
+  }
+  const c=$("counts");c.textContent="";
+  const chip=(cls,num,txt)=>{const s=el("span","chip "+cls);s.append(el("b",null,String(num)),document.createTextNode(" "+txt));c.appendChild(s)};
+  chip(waiting?"warn":"","" +waiting,"waiting for approval");
+  if(changed)chip("bad",changed,"changed after entry");
+  chip(ready?"ok":"",ready,"approved, not entered yet");
+  if(missing)chip("bad",missing,"missing entries (before today)");
+}
+
+function lineFor(kind,r,key,idx){
+  const l=el("div","line");
+  l.appendChild(el("div","kind",kind));
+  const meta=el("div","meta");
+  const acts=el("div","acts");
+  if(!r){
+    meta.textContent=idx===0?"Not submitted yet today":"Never submitted";
+    acts.appendChild(el("span","pill p-missing",idx===0?"Not yet":"Missing"));
+  }else{
+    const items=Object.values(r.counts).filter(v=>v>0).length+(r.extras||[]).length;
+    const tot=Object.values(r.counts).reduce((a,b)=>a+b,0)+(r.extras||[]).reduce((a,x)=>a+x.count,0);
+    const who=el("span","who",r.preparedBy||"—");
+    meta.append(who,document.createTextNode(" · "+items+(items===1?" item · ":" items · ")+tot+" pcs · saved "+fmtTime(r.savedAt)));
+    acts.appendChild(el("span","pill "+statusClass(r.status),statusLabel(r.status)));
+    if(kind==="Waste"&&(r.status==="Submitted"||r.status==="Changed after entry")){
+      const b=el("button","btn okb","Approve");b.type="button";b.onclick=()=>setStatus(r,"Approved",b);acts.appendChild(b);
+    }
+    if(kind==="Waste"&&r.status==="Approved"){
+      const b=el("button","btn link","Undo");b.type="button";b.onclick=()=>setStatus(r,"Submitted",b);acts.appendChild(b);
+    }
+    // One Details button per day: on the Waste line, or on Produced when there's no waste yet.
+    if(kind==="Waste"||!byDateHasWaste(key)){
+      const v=el("button","btn link",open.has(key)?"Hide":"Details");v.type="button";
+      v.onclick=()=>{open.has(key)?open.delete(key):open.add(key);render()};
+      acts.appendChild(v);
+    }
+  }
+  l.append(meta,acts);return l;
+}
+function byDateHasWaste(key){return rows.some(r=>r.date===key&&r.type==="Waste")}
+
+function detail(P,W){
+  const d=el("div","detail");
+  const wrap=el("div","tbl");const t=el("table");
+  const hr=el("tr");["Item","Made","Wasted","Waste %"].forEach(x=>hr.appendChild(el("th",null,x)));
+  const thead=el("thead");thead.appendChild(hr);t.appendChild(thead);
+  const tb=el("tbody");
+  for(const [g,items] of GROUPS){
+    const rowsHere=items.filter(([k])=>(P&&P.counts[k])||(W&&W.counts[k]));
+    const extraHere=[...(P?P.extras:[]),...(W?W.extras:[])].filter(x=>x.group===g);
+    if(!rowsHere.length&&!extraHere.length)continue;
+    const gr=el("tr","grp");const gc=el("td",null,g);gc.colSpan=4;gr.appendChild(gc);tb.appendChild(gr);
+    for(const [k,label] of rowsHere)tb.appendChild(itemRow(label,P?P.counts[k]||0:null,W?W.counts[k]||0:null));
+    const names=[...new Set(extraHere.map(x=>x.name))];
+    for(const nm of names){
+      const pc=P?(P.extras.find(x=>x.group===g&&x.name===nm)||{}).count||0:null;
+      const wc=W?(W.extras.find(x=>x.group===g&&x.name===nm)||{}).count||0:null;
+      tb.appendChild(itemRow(nm+" (one-day item)",pc,wc));
+    }
+  }
+  t.appendChild(tb);wrap.appendChild(t);d.appendChild(wrap);
+  const kv=el("div","kv");
+  const add=(k,v)=>{if(!v)return;const p=el("div");p.append(el("b",null,k+": "),document.createTextNode(v));kv.appendChild(p)};
+  add("Production notes",P&&P.notes);add("Waste notes",W&&W.notes);
+  add("Production edits",P&&P.log);add("Waste edits",W&&W.log);
+  if(kv.childNodes.length)d.appendChild(kv);
+  return d;
+}
+function itemRow(label,made,wasted){
+  const tr=el("tr");tr.appendChild(el("td",null,label));
+  tr.appendChild(el("td",null,made==null?"—":String(made)));
+  tr.appendChild(el("td",null,wasted==null?"—":String(wasted)));
+  let pct="—",hi=false;
+  if(made>0&&wasted!=null){const p=Math.round(wasted/made*100);pct=p+"%";hi=p>=30}
+  else if(wasted>0&&made===0){pct="no production";hi=true}
+  const c=el("td",hi?"hi":null,pct);tr.appendChild(c);return tr;
+}
+
+async function setStatus(r,status,btn){
+  if(busy)return;busy=true;btn.disabled=true;
+  try{
+    const res=await api("setStatus",{date:r.date,type:"waste",status,savedAt:r.savedAt});
+    if(res.ok){toast(status==="Approved"?"Approved "+fmtDate(r.date):"Approval undone");await load()}
+    else if(res.error==="changed"){toast("Staff changed this day after you opened it. Check the new numbers, then approve.");open.add(r.date);await load()}
+    else if(res.error==="already_entered"){toast("Already in ClearView.");await load()}
+    else toast("Couldn't update. Try again.");
+  }catch(e){if(!e.pin)toast("Couldn't reach the Sheet. Try again.")}
+  finally{busy=false;btn.disabled=false}
+}
+
+$("refresh").onclick=load;
+$("range").onchange=load;
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&pin.get())load()});
+load();
+</script>
+</body>
+</html>

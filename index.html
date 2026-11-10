@@ -102,6 +102,13 @@ section.group h2{font-family:var(--display);font-weight:800;font-size:1.4rem;lin
 .row.changed .step input{border-color:var(--warn);background:var(--warn-soft)}
 .loading #groups{opacity:.45;pointer-events:none}
 
+/* ---- Store PIN screen ---- */
+.pingate{position:fixed;inset:0;z-index:20;background:var(--bg);display:grid;place-items:center;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.pincard{width:100%;max-width:340px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px;display:grid;gap:12px;text-align:center}
+.pincard h2{font-family:var(--display);font-weight:800;font-size:1.5rem;margin:0}
+.pincard input{font-size:1.6rem;letter-spacing:.4em;text-align:center;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg);width:100%}
+.pinmsg{margin:0;min-height:1.2em;font-size:.88rem;color:var(--warn);font-weight:600}
+
 /* ---- Touch devices: no grey tap flash, no double-tap zoom on buttons ---- */
 button,input,textarea{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 input[type=date]{min-height:42px;display:block;-webkit-appearance:none;appearance:none;text-align:left}
@@ -191,20 +198,23 @@ input[type=date]::-webkit-date-and-time-value{text-align:left}
 </div>
 <div class="toast" id="toast" role="status" hidden></div>
 
-<script>
-// Paste the Google Apps Script web app URL here (ends in /exec)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxLboExVZ5exjDU9P-QLIDOm4zKs_bo-S_Asiz37Pd8Z_3d53rpcnyGm1q1jnB482BbwQ/exec";
+<div class="pingate" id="pinGate" hidden role="dialog" aria-modal="true" aria-labelledby="pinTitle">
+  <form class="pincard" id="pinForm" autocomplete="off">
+    <h2 id="pinTitle">Enter store PIN</h2>
+    <p class="note">You only need to do this once on this phone or iPad.</p>
+    <input type="password" id="pinIn" inputmode="numeric" pattern="[0-9]*" maxlength="8" placeholder="••••" aria-label="Store PIN">
+    <p class="pinmsg" id="pinMsg" role="alert"></p>
+    <button class="btn primary" id="pinGo" type="submit">Unlock</button>
+  </form>
+</div>
 
-// The permanent item list. Only the manager changes this (and the matching ITEMS list in Code.gs).
-const GROUPS = [
- ["Donuts", [["apple_fritter","Apple Fritter"],["oreo","Oreo"],["vanilla_cream","Vanilla Cream"],["boston_cream","Boston Cream"],["canadian_maple","Canadian Maple"],["raspberry","Raspberry"],["vanilla_dip","Vanilla Dip"],["chocolate_dip","Chocolate Dip"],["maple_dip","Maple Dip"],["honey_dip","Honey Dip"],["honey_cruller","Honey Cruller"],["chocolate_cruller","Chocolate Cruller"],["sour_cream","Sour Cream"],["blueberry_sour_cream","Blueberry Sour Cream"],["chocolate_glazed","Chocolate Glazed"],["double_chocolate","Double Chocolate"],["old_fashioned_plain","Old Fashioned Plain"],["yeast_rings","Yeast Rings"],["yeast_fills","Yeast Fills"]]],
- ["Timbits", [["tb_honey_dip","Honey Dip"],["tb_chocolate_glazed","Chocolate Glazed"],["tb_blueberry_sour_cream","Blueberry Sour Cream"],["tb_birthday_cake","Birthday Cake"]]],
- ["Cookies", [["chocolate_chunk","Chocolate Chunk"],["salted_caramel","Salted Caramel"]]],
- ["Muffins", [["muffin_chocolate_chip","Chocolate Chip"],["muffin_blueberry","Blueberry"]]],
- ["Sandwich", [["eggs","Eggs"],["hashbrown","Hashbrown"],["sausage","Sausage"],["bacon_egg_bites","Bacon Egg Bites"],["spinach_egg_bites","Spinach Egg Bites"],["bacon","Bacon","slices, as counted"],["chicken","Chicken","scoops"],["steak","Steak","scoops"]]],
- ["Bagels", [["bagel_plain","Plain"],["bagel_everything","Everything"]]],
- ["Breads", [["biscuit","Biscuit"],["english_muffin","English Muffin"],["croissant","Croissant"],["sourdough","Sourdough Bread"],["artisan_bun","Artisan Bun"]]],
-];
+<script src="config.js"></script>
+<script src="items.js"></script>
+<script src="common.js"></script>
+<script>
+// Item list: items.js.  Sheet link + start date: config.js.  Shared helpers: common.js.
+const GROUPS = window.EOD_ITEMS;
+const CFG = window.EOD_CONFIG;
 const $ = id => document.getElementById(id);
 const MODES = {
   produced:{title:"Production Sheet", btn:"Save production", word:"Production",
@@ -217,12 +227,13 @@ const state = {produced:blank(), waste:blank()};
 let mode = "produced";
 let counts = state.produced.counts;
 let saving = false, loadedDate = null, loadSeq = 0;
-const ready = /^https:\/\/script\.google\.com\//.test(SCRIPT_URL);
+const todayStr=EOD.todayStr, fmtDate=s=>EOD.fmtDate(s), fmtTime=EOD.fmtTime, toast=EOD.toast;
+const pin = EOD.makePin("eodw_pin");
+let showPin = function(){};
+const API = EOD.makeApi(pin, function(m){ showPin(m); });
+const api = API.call;
+const ready = API.ready;
 
-function todayStr(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
-function fmtDate(s){const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d).toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})}
-function fmtTime(iso){const t=new Date(iso);return isNaN(t)?"":t.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"})}
-function toast(msg){const t=$("toast");t.textContent=msg;t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,3000)}
 
 // ---------- rows ----------
 const extras = {};          // key -> {group, name}   (items added for one day only)
@@ -383,20 +394,38 @@ function applyDay(data){
   for(const m in state)for(const k in groupOf){if(!(k in state[m].counts))state[m].counts[k]=0}
   render();
 }
+// Refresh just one tab from the Sheet after saving it, leaving the other tab's unsaved numbers alone.
+function applyOne(m,rec){
+  state[mode].notes=$("notes").value;
+  const s=state[m];
+  for(const k in s.counts)s.counts[k]=0;
+  s.savedCounts={};s.info=rec||null;s.savedNotes=rec?rec.notes||"":"";s.notes=s.savedNotes;
+  if(rec){
+    for(const k in rec.counts){if(k in s.counts){s.counts[k]=rec.counts[k];s.savedCounts[k]=rec.counts[k]}}
+    for(const x of rec.extras||[]){if(!groupUI[x.group])continue;const key=addExtra(x.group,x.name);s.counts[key]=x.count;s.savedCounts[key]=x.count}
+  }
+  for(const mm in state)for(const k in groupOf){if(!(k in state[mm].counts))state[mm].counts[k]=0}
+  render();
+}
+
+// ---------- PIN screen (shared code in common.js) ----------
+showPin = EOD.wirePinGate(pin, async function(){ const r = await api("check"); return !!r.ok; },
+  function(){ loadDay($("date").value || todayStr()); });
+
 async function loadDay(date){
   if(!ready){loadedDate=date;applyDay(null);return}
+  if(!pin.get()){showPin("");return}
   const seq=++loadSeq;
   document.body.classList.add("loading");loadedDate=null;paintStatus();$("submit").disabled=true;
   try{
-    const res=await fetch(SCRIPT_URL+"?date="+encodeURIComponent(date),{cache:"no-store"});
-    const data=await res.json();
+    const data=await api("load",{date});
     if(seq!==loadSeq)return;
     if(!data.ok)throw new Error(data.error||"load failed");
     loadedDate=date;applyDay(data);
   }catch(e){
     if(seq!==loadSeq)return;
     loadedDate=date;applyDay(null);
-    toast("Couldn't load saved numbers. Check your connection.");
+    if(!e.pin)toast("Couldn't load saved numbers. Check your connection.");
   }finally{
     if(seq===loadSeq){document.body.classList.remove("loading");$("submit").disabled=false;paintStatus()}
   }
@@ -405,7 +434,9 @@ async function loadDay(date){
 // Changing the date with unsaved numbers asks first.
 let pendingDate=null;
 $("date").addEventListener("change",()=>{
-  const d=$("date").value||todayStr();
+  let d=$("date").value||todayStr();
+  if(d<CFG.START_DATE){d=CFG.START_DATE;$("date").value=d;toast("Entries start "+fmtDate(CFG.START_DATE))}
+  if(d>todayStr()){d=todayStr();$("date").value=d;toast("Can't enter a future date")}
   if(d===loadedDate)return;
   const dirtyModes=["produced","waste"].filter(isDirty);
   if(dirtyModes.length&&loadedDate){
@@ -429,20 +460,18 @@ async function save(){
   const d=loadedDate||$("date").value||todayStr();
   const c={},x=[];
   for(const k in counts){if(counts[k]>0){if(extras[k])x.push({group:extras[k].group,name:extras[k].name,count:counts[k]});else c[k]=counts[k]}}
-  const body=JSON.stringify({type:mode,date:d,preparedBy:name,notes:$("notes").value.trim(),counts:c,extras:x});
   saving=true;const btn=$("submit");btn.disabled=true;btn.textContent="Saving…";
+  const m=mode;
   try{
-    await fetch(SCRIPT_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body});
+    const data=await api("save",{type:m,date:d,preparedBy:name,notes:$("notes").value.trim(),counts:c,extras:x,itemKeys:window.EOD_ITEM_KEYS});
     try{localStorage.setItem("eodw_name",name)}catch(e){}
-    // Read it back so staff see exactly what the Sheet has now.
-    const res=await fetch(SCRIPT_URL+"?date="+encodeURIComponent(d),{cache:"no-store"});
-    const data=await res.json();
-    const rec=data&&data[mode];
+    // The Sheet sends back what it now holds, so staff see exactly what was saved.
+    const rec=data&&data.ok&&data.record;
     const okCount=rec&&Object.keys(c).every(k=>rec.counts[k]===c[k]);
     if(!okCount)throw new Error("not confirmed");
-    const m=mode;applyDay(data);toast(MODES[m].word+" saved for "+fmtDate(d));
+    applyOne(m,rec);toast(MODES[m].word+" saved for "+fmtDate(d));
     return true;
-  }catch(e){toast("Couldn't confirm the save. Check your connection and tap Save again.");return false}
+  }catch(e){if(!e.pin)toast("Couldn't confirm the save. Check your connection and tap Save again.");return false}
   finally{saving=false;btn.disabled=false;paintStatus()}
 }
 $("submit").onclick=save;
@@ -453,6 +482,7 @@ addEventListener("resize",fitHeader);
 addEventListener("beforeunload",e=>{if(["produced","waste"].some(isDirty)){e.preventDefault();e.returnValue=""}});
 if(!ready)$("setup").hidden=false;
 try{const w=localStorage.getItem("eodw_name");if(w)$("who").value=w}catch(e){}
+$("date").min=CFG.START_DATE;$("date").max=todayStr();
 $("date").value=todayStr();
 setMode("produced");
 loadDay($("date").value);
