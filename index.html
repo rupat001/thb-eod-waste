@@ -190,6 +190,7 @@ input[type=date]::-webkit-date-and-time-value{text-align:left}
       <span id="guardText"></span>
       <div class="acts"><button type="button" id="guardSave">Save first</button><button type="button" class="ghost" id="guardDiscard">Discard changes</button></div>
     </div>
+    <div id="loadErr" class="banner warn" hidden role="alert"><span id="loadErrText"></span><div class="acts"><button type="button" id="loadRetry">Try again</button></div></div>
     <div id="entered" class="banner info" hidden>These waste numbers are already in ClearView. If you change them, the manager will be told to fix ClearView too.</div>
     <p class="note" id="hint"></p>
     <div id="groups"></div>
@@ -235,7 +236,7 @@ const blank = () => ({counts:{}, notes:"", extras:[], savedCounts:{}, savedNotes
 const state = {produced:blank(), waste:blank()};
 let mode = "produced";
 let counts = state.produced.counts;
-let saving = false, loadedDate = null, loadSeq = 0;
+let saving = false, loadedDate = null, loadSeq = 0, loadFailed = false, followToday = true;
 const todayStr=EOD.todayStr, fmtDate=s=>EOD.fmtDate(s), fmtTime=EOD.fmtTime, toast=EOD.toast;
 const pin = EOD.makePin("eodw_pin");
 let showPin = function(){};
@@ -360,6 +361,7 @@ function paintStatus(){
   el.className="status";
   if(!ready){tx.textContent="Not connected to the Sheet yet";return}
   if(loadedDate===null){tx.textContent="Loading saved numbers…";return}
+  if(loadFailed){tx.textContent="Couldn't load — saving is off";$("unsaved").hidden=true;return}
   const dirty=isDirty(mode);
   $("unsaved").hidden=!dirty;
   if(dirty){el.classList.add("dirty");tx.textContent=s.info?"Unsaved changes — tap "+M.btn:"Not saved yet";}
@@ -418,6 +420,22 @@ function applyOne(m,rec){
   render();
 }
 
+// Another device saved this day first: make its numbers the "saved" baseline, keep this person's typing.
+function takeNewerSaved(m,rec){
+  const s=state[m];
+  if(m===mode)s.notes=$("notes").value;
+  const oldSaved=s.savedCounts, oldNotes=s.savedNotes;
+  const newSaved={};
+  for(const k in rec.counts){if(k in s.counts)newSaved[k]=rec.counts[k]}
+  for(const x of rec.extras||[]){if(!groupUI[x.group])continue;const key=addExtra(x.group,x.name);newSaved[key]=x.count;if(!(key in s.counts))s.counts[key]=0}
+  for(const mm in state)for(const k in groupOf){if(!(k in state[mm].counts))state[mm].counts[k]=0}
+  // Items this person didn't touch take the newer number; items they changed keep their typing.
+  for(const k in s.counts){if((s.counts[k]||0)===(oldSaved[k]||0))s.counts[k]=newSaved[k]||0}
+  if(s.notes.trim()===oldNotes.trim())s.notes=rec.notes||"";
+  s.info=rec;s.savedCounts=newSaved;s.savedNotes=rec.notes||"";
+  render();
+}
+
 // ---------- PIN screen (shared code in common.js) ----------
 showPin = EOD.wirePinGate(pin, async function(){ const r = await api("check"); return !!r.ok; },
   function(){ loadDay($("date").value || todayStr()); });
@@ -431,15 +449,18 @@ async function loadDay(date){
     const data=await api("load",{date});
     if(seq!==loadSeq)return;
     if(!data.ok)throw new Error(data.error||"load failed");
-    loadedDate=date;applyDay(data);
+    loadedDate=date;loadFailed=false;followToday=(date===todayStr());$("loadErr").hidden=true;applyDay(data);
   }catch(e){
     if(seq!==loadSeq)return;
-    loadedDate=date;applyDay(null);
-    if(!e.pin)toast("Couldn't load saved numbers. Check your connection.");
+    // Never show an empty form as if nothing was saved: saving it would wipe the real numbers.
+    loadedDate=date;loadFailed=true;applyDay(null);
+    if(!e.pin){$("loadErrText").textContent="Couldn't load what's already saved for "+fmtDate(date)+". Saving is turned off until it loads, so nothing gets overwritten.";$("loadErr").hidden=false}
   }finally{
-    if(seq===loadSeq){document.body.classList.remove("loading");$("submit").disabled=false;paintStatus()}
+    if(seq===loadSeq){document.body.classList.remove("loading");$("submit").disabled=loadFailed;paintStatus()}
   }
 }
+
+$("loadRetry").onclick=()=>loadDay(loadedDate||$("date").value||todayStr());
 
 // Changing the date with unsaved numbers asks first.
 let pendingDate=null;
@@ -465,6 +486,7 @@ $("guardSave").onclick=async()=>{$("guard").hidden=true;
 async function save(){
   if(saving)return false;
   if(!ready){toast("Form isn't connected yet. Ask the manager.");return false}
+  if(loadFailed||loadedDate===null){toast("Saved numbers haven't loaded yet. Tap Try again first.");return false}
   const name=$("who").value.trim();
   if(!name){toast("Add your name first");$("who").focus();return false}
   const d=loadedDate||$("date").value||todayStr();
@@ -473,8 +495,20 @@ async function save(){
   saving=true;const btn=$("submit");btn.disabled=true;btn.textContent="Saving…";
   const m=mode;
   try{
-    const data=await api("save",{type:m,date:d,preparedBy:name,notes:$("notes").value.trim(),counts:c,extras:x,itemKeys:window.EOD_ITEM_KEYS});
+    const base=state[m].info?(state[m].info.version||state[m].info.savedAt):"";
+    const data=await api("save",{type:m,date:d,preparedBy:name,notes:$("notes").value.trim(),counts:c,extras:x,itemKeys:window.EOD_ITEM_KEYS,base});
     try{localStorage.setItem("eodw_name",name)}catch(e){}
+    if(data&&!data.ok&&data.error==="changed"&&data.record){
+      // Someone else saved this day after this device loaded it. Keep what this person typed,
+      // compare it against the newer numbers, and let them check before saving again.
+      takeNewerSaved(m,data.record);
+      toast((data.record.preparedBy||"Someone")+" saved this at "+fmtTime(data.record.savedAt)+" after you opened it. Rows marked \"Saved: … → now …\" show what's different. Check them, then save again.",9000);
+      return false;
+    }
+    if(data&&!data.ok){
+      const why={bad_date:"That date can't be used (entries are "+fmtDate(CFG.START_DATE)+" to today).",no_name:"Add your name first."}[data.error];
+      if(why){toast(why,6000);return false}
+    }
     // The Sheet sends back what it now holds, so staff see exactly what was saved.
     const rec=data&&data.ok&&data.record;
     const okCount=rec&&Object.keys(c).every(k=>rec.counts[k]===c[k]);
@@ -496,7 +530,16 @@ $("date").min=CFG.START_DATE;$("date").max=todayStr();
 // Keep "today" current on devices left open overnight (store iPad).
 function refreshMax(){$("date").max=todayStr()}
 $("date").addEventListener("focus",refreshMax);$("date").addEventListener("click",refreshMax);
-document.addEventListener("visibilitychange",()=>{if(!document.hidden)refreshMax()});
+document.addEventListener("visibilitychange",()=>{
+  if(document.hidden)return;
+  refreshMax();
+  if(saving||loadedDate===null||!pin.get())return;
+  const t=todayStr(), dirty=["produced","waste"].some(isDirty);
+  // Left open on "today" and it's now a new day: move to the new day (asks first if anything's unsaved).
+  if(followToday&&loadedDate!==t){$("date").value=t;$("date").dispatchEvent(new Event("change"));return}
+  // Otherwise refresh, so numbers another device saved meanwhile show up. Never while someone is mid-entry.
+  if(!dirty)loadDay(loadedDate);
+});
 $("date").value=todayStr();
 setMode("produced");
 loadDay($("date").value);

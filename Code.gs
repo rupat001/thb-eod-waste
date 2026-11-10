@@ -1,5 +1,5 @@
 // ============================================================
-//  EOD Waste / Production — Google Apps Script (API version 2)
+//  EOD Waste / Production — Google Apps Script (API version 2, rev 3)
 //
 //  Paste into your Google Sheet: Extensions > Apps Script, replace everything, Save.
 //  PINs live in Project Settings > Script properties (never in this code):
@@ -77,6 +77,12 @@ function ensureItemColumns_(sh, keys) {
   return header_(sh);
 }
 
+// Sheets have a fixed number of rows (1,000 by default). Writing past the end fails, so grow first.
+function ensureRows_(sh, rowNum) {
+  const max = sh.getMaxRows();
+  if (rowNum > max) sh.insertRowsAfter(max, Math.max(500, rowNum - max));
+}
+
 function dateKey_(v) {
   if (v instanceof Date) return Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd');
   return String(v || '').slice(0, 10);
@@ -114,7 +120,9 @@ function rowToObj_(r, h) {
     date: dateKey_(r[COL.date]), type: String(r[COL.type] || ''),
     savedAt: saved, preparedBy: String(r[COL.name] || ''), status: String(r[COL.status] || ''),
     notes: String(r[COL.notes] || ''), extras: parseExtras_(r[COL.extras]),
-    log: String(r[COL.log] || ''), counts: counts
+    log: String(r[COL.log] || ''), counts: counts,
+    // Changes on every save (time + length of the edit log), even two saves in the same second.
+    version: saved + '|' + String(r[COL.log] || '').length
   };
 }
 
@@ -220,6 +228,13 @@ function save_(data) {
 
     const rowNum = findRow_(sh, date, type);
     const width = h.names.length;
+
+    // Two devices on the same day: refuse to overwrite a save this device never saw.
+    // `base` = the version the page loaded ("" = it saw no saved row). Older pages don't send it.
+    if (typeof data.base === 'string' && rowNum) {
+      const cur = readRow_(sh, rowNum, h);
+      if (data.base !== cur.version) return { ok: false, error: 'changed', record: cur };
+    }
     let row, status, log;
     if (rowNum) {
       row = sh.getRange(rowNum, 1, 1, width).getValues()[0];
@@ -251,6 +266,7 @@ function save_(data) {
     if (rowNum) { sh.getRange(rowNum, 1, 1, width).setValues([row]); written = rowNum; }
     else {
       written = sh.getLastRow() + 1;
+      ensureRows_(sh, written);
       sh.getRange(written, COL.date + 1).setNumberFormat('@');
       sh.getRange(written, 1, 1, width).setValues([row]);
     }
@@ -258,6 +274,7 @@ function save_(data) {
     // History: one line per save, never overwritten.
     const hist = getHistory_();
     const hr = hist.getLastRow() + 1;
+    ensureRows_(hist, hr);
     hist.getRange(hr, 3).setNumberFormat('@');
     hist.getRange(hr, 1, 1, HISTORY_HEADER.length).setValues([[now, type, date, name, status, row[COL.notes], extras, JSON.stringify(clean)]]);
 
