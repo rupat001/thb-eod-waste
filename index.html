@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>EOD Waste Sheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: one narrow phone column — sticky header, grouped item rows with steppers, sticky submit bar */
+:root{
+  --bg:#f3f4f2; --surface:#ffffff; --fg:#1d1f1c; --muted:#62675f; --line:#dcdfd8;
+  --accent:#6b3a1f; --accent-fg:#ffffff; --accent-soft:#f1e6dd;
+  --ok:#1f7a4a; --ok-soft:#dcf1e4; --warn:#9a6200; --warn-soft:#fbeccc;
+  --display:"Bricolage Grotesque", "Inter", system-ui, sans-serif;
+  --body:"Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#141613; --surface:#1d201c; --fg:#ecefe9; --muted:#a2a89e; --line:#30342e;
+  --accent:#e0a37d; --accent-fg:#1d120b; --accent-soft:#3a2a1f;
+  --ok:#6fd39c; --ok-soft:#173826; --warn:#f0c062; --warn-soft:#3b2f14; color-scheme:dark}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45;padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.wrap{max-width:560px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line);padding-top:env(safe-area-inset-top,0px)}
+header.top .wrap{padding-block:12px;display:grid;gap:10px}
+h1{font-family:var(--display);font-weight:800;font-size:1.45rem;margin:0;letter-spacing:-.01em}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label.f{display:grid;gap:4px;font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+input,textarea,button{font:inherit;color:inherit}
+input[type=date],input[type=text],textarea{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 10px;width:100%;min-width:0;font-size:1rem;color:var(--fg)}
+textarea{resize:vertical;min-height:56px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+main .wrap{padding-block:14px;display:grid;gap:18px}
+.note{font-size:.85rem;color:var(--muted);margin:0}
+.banner{border-radius:10px;padding:10px 12px;font-size:.9rem}
+.banner.warn{background:var(--warn-soft);color:var(--warn)}
+.banner.ok{background:var(--ok-soft);color:var(--ok)}
+main .wrap{gap:36px}
+section.group{display:grid;gap:10px;scroll-margin-top:var(--headH,170px)}
+.ghead{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding-inline:2px}
+section.group h2{font-family:var(--display);font-weight:800;font-size:1.4rem;line-height:1.1;letter-spacing:-.015em;color:var(--fg);margin:0}
+.gsum{font-size:.8rem;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.gsum.on{color:var(--accent)}
+.jump{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-inline:-2px;padding:1px 2px}
+.jump::-webkit-scrollbar{display:none}
+.jump button{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:.82rem;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
+.jump button .n{display:inline-block;min-width:18px;margin-left:5px;padding:0 5px;border-radius:999px;background:var(--accent);color:var(--accent-fg);font-size:.72rem;font-variant-numeric:tabular-nums}
+.jump button .n:empty{display:none}
+.row .name b{font-size:1rem}
+.rows{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.row{display:flex;align-items:center;gap:10px;padding:8px 10px 8px 14px;border-top:1px solid var(--line);min-height:54px}
+.row:first-child{border-top:0}
+.row .name{flex:1;min-width:0}
+.row .name b{font-weight:500;display:block}
+.row .name small{color:var(--muted);font-size:.75rem}
+.row.has .name b{font-weight:600}
+.step{display:flex;align-items:center;gap:4px;flex:none}
+.step button{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--bg);font-size:1.25rem;line-height:1;cursor:pointer;touch-action:manipulation}
+.step button:active{background:var(--accent-soft)}
+.step input{width:56px;height:40px;text-align:center;border:1px solid var(--line);border-radius:10px;background:var(--bg);font-size:1.1rem;font-weight:600;font-variant-numeric:tabular-nums;padding:0;color:var(--fg)}
+.row.has .step input{border-color:var(--accent);background:var(--accent-soft)}
+:disabled{opacity:.55;cursor:not-allowed}
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+.bar .wrap{display:flex;align-items:center;gap:12px;padding-block:12px}
+.bar .sum{flex:1;min-width:0;font-size:.85rem;color:var(--muted)}
+.bar .sum strong{color:var(--fg);font-size:1rem;font-variant-numeric:tabular-nums}
+.btn{border:0;border-radius:10px;padding:12px 18px;font-weight:600;cursor:pointer}
+.btn.primary{background:var(--accent);color:var(--accent-fg)}
+.addbtn{margin-top:6px;width:100%;border:1px dashed var(--line);background:transparent;border-radius:10px;padding:10px;font-weight:600;color:var(--accent);cursor:pointer}
+.addform{margin-top:6px;display:flex;gap:6px}
+.addform input{flex:1;min-width:0;background:var(--surface);border:1px solid var(--accent);border-radius:8px;padding:9px 10px;font-size:1rem;color:var(--fg)}
+.addform button{border:0;border-radius:8px;padding:0 14px;font-weight:600;cursor:pointer;background:var(--accent);color:var(--accent-fg)}
+.addform button.cancel{background:transparent;color:var(--muted);border:1px solid var(--line)}
+.tag{display:inline-block;font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:1px}
+.rm{border:0;background:transparent;color:var(--muted);font-size:.78rem;text-decoration:underline;cursor:pointer;padding:0;margin-left:6px}
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:3px}
+.tabs button{border:0;background:transparent;border-radius:8px;padding:9px 8px;font-weight:600;color:var(--muted);cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-fg)}
+.done{text-align:center;padding-block:48px;display:grid;gap:12px;justify-items:center}
+.done h2{font-family:var(--display);font-weight:800;font-size:1.4rem;margin:0}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:.9rem;z-index:8}
+[hidden]{display:none!important}
+@media (max-width:380px){.fields{grid-template-columns:1fr}.step button{width:36px}.step input{width:48px}}
+.banner.info{background:var(--accent-soft);color:var(--fg)}
+.banner .acts{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.banner .acts button{border:0;border-radius:8px;padding:8px 12px;font-weight:600;cursor:pointer;background:var(--accent);color:var(--accent-fg)}
+.banner .acts button.ghost{background:transparent;border:1px solid currentColor;color:inherit}
+.status{display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--muted);min-height:20px}
+.status .dot{width:8px;height:8px;border-radius:50%;background:var(--line);flex:none}
+.status.saved .dot{background:var(--ok)}
+.status.dirty .dot{background:var(--warn)}
+.status.dirty{color:var(--warn);font-weight:600}
+.row .was{display:block;font-size:.75rem;color:var(--warn);font-weight:600}
+.row.changed .step input{border-color:var(--warn);background:var(--warn-soft)}
+.loading #groups{opacity:.45;pointer-events:none}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <h1 id="title">Production Sheet</h1>
+    <div class="tabs" role="tablist" aria-label="What are you entering">
+      <button type="button" role="tab" id="tab_produced" aria-selected="true">Produced</button>
+      <button type="button" role="tab" id="tab_waste" aria-selected="false">Waste</button>
+    </div>
+    <div class="fields">
+      <label class="f" for="date">Date
+        <input type="date" id="date">
+      </label>
+      <label class="f" for="who">Your name
+        <input type="text" id="who" placeholder="e.g. Alex" autocomplete="name">
+      </label>
+    </div>
+    <div class="status" id="status"><span class="dot"></span><span id="statusText">Loading…</span></div>
+    <nav class="jump" id="jump" aria-label="Jump to category"></nav>
+  </div>
+</header>
+
+<main id="form">
+  <div class="wrap">
+    <div id="setup" class="banner warn" hidden>This form isn't connected to the Google Sheet yet. Ask the manager to finish setup.</div>
+    <div id="guard" class="banner warn" hidden>
+      <span id="guardText"></span>
+      <div class="acts"><button type="button" id="guardSave">Save first</button><button type="button" class="ghost" id="guardDiscard">Discard changes</button></div>
+    </div>
+    <div id="entered" class="banner info" hidden>These waste numbers are already in ClearView. If you change them, the manager will be told to fix ClearView too.</div>
+    <p class="note" id="hint"></p>
+    <div id="groups"></div>
+    <label class="f" for="notes">Notes (optional)
+      <textarea id="notes" placeholder="Anything the manager should know"></textarea>
+    </label>
+  </div>
+</main>
+
+<div class="bar" id="bar">
+  <div class="wrap">
+    <div class="sum"><strong id="cnt">0</strong> items · <span id="tot">0</span> pieces</div>
+    <button class="btn primary" id="submit" type="button">Save</button>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+// Paste the Google Apps Script web app URL here (ends in /exec)
+const SCRIPT_URL = "PASTE_APPS_SCRIPT_URL_HERE";
+
+// The permanent item list. Only the manager changes this (and the matching ITEMS list in Code.gs).
+const GROUPS = [
+ ["Donuts", [["apple_fritter","Apple Fritter"],["oreo","Oreo"],["vanilla_cream","Vanilla Cream"],["boston_cream","Boston Cream"],["canadian_maple","Canadian Maple"],["raspberry","Raspberry"],["vanilla_dip","Vanilla Dip"],["chocolate_dip","Chocolate Dip"],["maple_dip","Maple Dip"],["honey_dip","Honey Dip"],["honey_cruller","Honey Cruller"],["chocolate_cruller","Chocolate Cruller"],["sour_cream","Sour Cream"],["blueberry_sour_cream","Blueberry Sour Cream"],["chocolate_glazed","Chocolate Glazed"],["double_chocolate","Double Chocolate"],["old_fashioned_plain","Old Fashioned Plain"],["yeast_rings","Yeast Rings"],["yeast_fills","Yeast Fills"]]],
+ ["Timbits", [["tb_honey_dip","Honey Dip"],["tb_chocolate_glazed","Chocolate Glazed"],["tb_blueberry_sour_cream","Blueberry Sour Cream"],["tb_birthday_cake","Birthday Cake"]]],
+ ["Cookies", [["chocolate_chunk","Chocolate Chunk"],["salted_caramel","Salted Caramel"]]],
+ ["Muffins", [["muffin_chocolate_chip","Chocolate Chip"],["muffin_blueberry","Blueberry"]]],
+ ["Sandwich", [["eggs","Eggs"],["hashbrown","Hashbrown"],["sausage","Sausage"],["bacon_egg_bites","Bacon Egg Bites"],["spinach_egg_bites","Spinach Egg Bites"],["bacon","Bacon","slices, as counted"],["chicken","Chicken","scoops"],["steak","Steak","scoops"]]],
+ ["Bagels", [["bagel_plain","Plain"],["bagel_everything","Everything"]]],
+ ["Breads", [["biscuit","Biscuit"],["english_muffin","English Muffin"],["croissant","Croissant"],["sourdough","Sourdough Bread"],["artisan_bun","Artisan Bun"]]],
+];
+const $ = id => document.getElementById(id);
+const MODES = {
+  produced:{title:"Production Sheet", btn:"Save production", word:"Production",
+    hint:"Enter how many of each item were made today. Making more later? Come back, pick the same date and raise the number — what's already saved shows up here."},
+  waste:{title:"EOD Waste Sheet", btn:"Save waste", word:"Waste",
+    hint:"Count what's left to throw out at end of day. Sold more after counting? Pick the same date, fix the number and save again."}
+};
+const blank = () => ({counts:{}, notes:"", extras:[], savedCounts:{}, savedNotes:"", savedExtras:[], info:null});
+const state = {produced:blank(), waste:blank()};
+let mode = "produced";
+let counts = state.produced.counts;
+let saving = false, loadedDate = null, loadSeq = 0;
+const ready = /^https:\/\/script\.google\.com\//.test(SCRIPT_URL);
+
+function todayStr(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function fmtDate(s){const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d).toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})}
+function fmtTime(iso){const t=new Date(iso);return isNaN(t)?"":t.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"})}
+function toast(msg){const t=$("toast");t.textContent=msg;t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,3000)}
+
+// ---------- rows ----------
+const extras = {};          // key -> {group, name}   (items added for one day only)
+let extraSeq = 0;
+const groupOf = {};         // key -> category
+const groupUI = {};         // category -> {sum, chip, rows}
+const rowEl = {};           // key -> row element
+
+function makeRow(rows, title, key, label, unit, isExtra){
+  for(const m in state){state[m].counts[key]=state[m].counts[key]||0}
+  groupOf[key]=title;
+  const r=document.createElement("div");r.className="row";rowEl[key]=r;
+  const n=document.createElement("div");n.className="name";
+  const b=document.createElement("b");b.textContent=label;n.appendChild(b);
+  if(unit){const s=document.createElement("small");s.textContent=unit;n.appendChild(s)}
+  if(isExtra){
+    const t=document.createElement("span");t.className="tag";t.textContent="Just today";b.appendChild(t);
+    const rm=document.createElement("button");rm.type="button";rm.className="rm";rm.textContent="Remove";
+    rm.onclick=()=>{setCount(key,0)};
+    b.appendChild(rm);
+  }
+  const was=document.createElement("span");was.className="was";was.hidden=true;n.appendChild(was);
+  const st=document.createElement("div");st.className="step";
+  const minus=document.createElement("button");minus.type="button";minus.textContent="−";minus.setAttribute("aria-label","Less "+label);
+  const inp=document.createElement("input");inp.id="c_"+key;inp.inputMode="numeric";inp.pattern="[0-9]*";inp.value="0";inp.setAttribute("aria-label",title+" "+label);
+  const plus=document.createElement("button");plus.type="button";plus.textContent="+";plus.setAttribute("aria-label","More "+label);
+  minus.onclick=()=>setCount(key,counts[key]-1);
+  plus.onclick=()=>setCount(key,counts[key]+1);
+  inp.onfocus=()=>inp.select();
+  inp.oninput=()=>{const v=parseInt(inp.value.replace(/\D/g,""),10);setCount(key,isNaN(v)?0:v,true)};
+  st.append(minus,inp,plus);r.append(n,st);rows.appendChild(r);
+  return inp;
+}
+function addExtra(group,name){
+  const found=Object.keys(extras).find(k=>extras[k].group===group&&extras[k].name.toLowerCase()===name.toLowerCase());
+  if(found)return found;
+  const key="x"+(++extraSeq);extras[key]={group,name};
+  makeRow(groupUI[group].rows,group,key,name,"",true);
+  return key;
+}
+function clearExtras(){
+  for(const k of Object.keys(extras)){rowEl[k].remove();delete rowEl[k];delete extras[k];delete groupOf[k];for(const m in state){delete state[m].counts[k];delete state[m].savedCounts[k]}}
+}
+
+for (const [title,items] of GROUPS){
+  const sec=document.createElement("section");sec.className="group";sec.id="g_"+title.toLowerCase();
+  const gh=document.createElement("div");gh.className="ghead";
+  const h=document.createElement("h2");h.textContent=title;
+  const gs=document.createElement("span");gs.className="gsum";
+  gh.append(h,gs);sec.appendChild(gh);
+  const chip=document.createElement("button");chip.type="button";chip.textContent=title;
+  const cn=document.createElement("span");cn.className="n";chip.appendChild(cn);
+  chip.onclick=()=>sec.scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"});
+  $("jump").appendChild(chip);
+  const rows=document.createElement("div");rows.className="rows";
+  groupUI[title]={sum:gs,chip:cn,rows};
+  for (const [key,label,unit] of items) makeRow(rows,title,key,label,unit,false);
+  sec.appendChild(rows);
+
+  const add=document.createElement("button");add.type="button";add.className="addbtn";
+  add.textContent="+ Add "+title.replace(/s$/,"").toLowerCase()+" not on the list";
+  const form=document.createElement("div");form.className="addform";form.hidden=true;
+  const nameIn=document.createElement("input");nameIn.type="text";nameIn.id="add_"+title.toLowerCase();nameIn.placeholder="Item name, e.g. Pumpkin Spice";nameIn.maxLength=40;
+  const ok=document.createElement("button");ok.type="button";ok.textContent="Add";
+  const cancel=document.createElement("button");cancel.type="button";cancel.className="cancel";cancel.textContent="Cancel";
+  form.append(nameIn,ok,cancel);
+  const close=()=>{form.hidden=true;add.hidden=false;nameIn.value=""};
+  add.onclick=()=>{add.hidden=true;form.hidden=false;nameIn.focus()};
+  cancel.onclick=close;
+  const commit=()=>{
+    const nm=nameIn.value.trim().replace(/\s+/g," ");
+    if(!nm){nameIn.focus();return}
+    if(items.some(i=>i[1].toLowerCase()===nm.toLowerCase())){toast(nm+" is already on the list");return}
+    const key=addExtra(title,nm);close();if(!counts[key])setCount(key,1);$("c_"+key).focus();
+  };
+  ok.onclick=commit;
+  nameIn.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();commit()}else if(e.key==="Escape")close()};
+  sec.append(add,form);
+  $("groups").appendChild(sec);
+}
+
+// ---------- counts & summary ----------
+function setCount(key,v,fromInput){
+  v=Math.max(0,Math.min(999,v|0));counts[key]=v;
+  const inp=$("c_"+key);if(!fromInput)inp.value=String(v);
+  paintRow(key);summary();
+}
+function paintRow(key){
+  const r=rowEl[key];if(!r)return;
+  const v=counts[key]||0, sv=state[mode].savedCounts[key]||0, info=state[mode].info;
+  r.classList.toggle("has",v>0);
+  const changed=!!info&&v!==sv;
+  r.classList.toggle("changed",changed);
+  const was=r.querySelector(".was");was.hidden=!changed;if(changed)was.textContent="Saved: "+sv+" → now "+v;
+}
+function isDirty(m){
+  const s=state[m];
+  if(($("notes").value.trim()!==s.savedNotes.trim())&&m===mode)return true;
+  if(m!==mode&&s.notes.trim()!==s.savedNotes.trim())return true;
+  const keys=new Set([...Object.keys(s.counts),...Object.keys(s.savedCounts)]);
+  for(const k of keys)if((s.counts[k]||0)!==(s.savedCounts[k]||0))return true;
+  return false;
+}
+function summary(){
+  let c=0,t=0;const g={};
+  for(const k in counts){if(counts[k]>0){c++;t+=counts[k];const G=groupOf[k];g[G]=g[G]||{c:0,t:0};g[G].c++;g[G].t+=counts[k]}}
+  $("cnt").textContent=c;$("tot").textContent=t;
+  for(const G in groupUI){const s=g[G];const u=groupUI[G];
+    u.sum.textContent=s?s.c+(s.c===1?" item · ":" items · ")+s.t:"None yet";u.sum.classList.toggle("on",!!s);
+    u.chip.textContent=s?String(s.t):""}
+  paintStatus();
+}
+function paintStatus(){
+  const el=$("status"),tx=$("statusText"),s=state[mode],M=MODES[mode];
+  el.className="status";
+  if(!ready){tx.textContent="Not connected to the Sheet yet";return}
+  if(loadedDate===null){tx.textContent="Loading saved numbers…";return}
+  const dirty=isDirty(mode);
+  if(dirty){el.classList.add("dirty");tx.textContent=s.info?"Unsaved changes — tap "+M.btn:"Not saved yet";}
+  else if(s.info){el.classList.add("saved");tx.textContent=M.word+" saved "+fmtTime(s.info.savedAt)+(s.info.preparedBy?" by "+s.info.preparedBy:"")}
+  else tx.textContent="No "+M.word.toLowerCase()+" saved for "+fmtDate(loadedDate)+" yet";
+  $("submit").textContent=M.btn;
+  $("entered").hidden=!(mode==="waste"&&s.info&&/^(Entered|Changed after entry)$/.test(s.info.status));
+}
+$("notes").addEventListener("input",paintStatus);
+
+// ---------- tabs ----------
+function setMode(m){
+  state[mode].notes=$("notes").value;
+  mode=m;render();
+}
+function render(){
+  const m=mode;counts=state[m].counts;
+  for(const k in groupOf){const inp=$("c_"+k);inp.value=String(counts[k]||0);paintRow(k)}
+  $("notes").value=state[m].notes;
+  const M=MODES[m];
+  $("title").textContent=M.title;document.title=M.title;$("hint").textContent=M.hint;
+  $("tab_produced").setAttribute("aria-selected",m==="produced");
+  $("tab_waste").setAttribute("aria-selected",m==="waste");
+  summary();fitHeader();
+}
+$("tab_produced").onclick=()=>setMode("produced");
+$("tab_waste").onclick=()=>setMode("waste");
+
+// ---------- loading a day ----------
+function applyDay(data){
+  state[mode].notes=$("notes").value;
+  clearExtras();
+  for(const m of ["produced","waste"]){
+    const rec=data&&data[m];const s=state[m];
+    for(const k in s.counts)s.counts[k]=0;
+    s.savedCounts={};s.info=rec||null;s.savedNotes=rec?rec.notes||"":"";s.notes=s.savedNotes;
+    if(rec){
+      for(const k in rec.counts){if(k in s.counts){s.counts[k]=rec.counts[k];s.savedCounts[k]=rec.counts[k]}}
+      for(const x of rec.extras||[]){if(!groupUI[x.group])continue;const key=addExtra(x.group,x.name);s.counts[key]=x.count;s.savedCounts[key]=x.count}
+    }
+  }
+  for(const m in state)for(const k in groupOf){if(!(k in state[m].counts))state[m].counts[k]=0}
+  render();
+}
+async function loadDay(date){
+  if(!ready){loadedDate=date;applyDay(null);return}
+  const seq=++loadSeq;
+  document.body.classList.add("loading");loadedDate=null;paintStatus();$("submit").disabled=true;
+  try{
+    const res=await fetch(SCRIPT_URL+"?date="+encodeURIComponent(date),{cache:"no-store"});
+    const data=await res.json();
+    if(seq!==loadSeq)return;
+    if(!data.ok)throw new Error(data.error||"load failed");
+    loadedDate=date;applyDay(data);
+  }catch(e){
+    if(seq!==loadSeq)return;
+    loadedDate=date;applyDay(null);
+    toast("Couldn't load saved numbers. Check your connection.");
+  }finally{
+    if(seq===loadSeq){document.body.classList.remove("loading");$("submit").disabled=false;paintStatus()}
+  }
+}
+
+// Changing the date with unsaved numbers asks first.
+let pendingDate=null;
+$("date").addEventListener("change",()=>{
+  const d=$("date").value||todayStr();
+  if(d===loadedDate)return;
+  const dirtyModes=["produced","waste"].filter(isDirty);
+  if(dirtyModes.length&&loadedDate){
+    pendingDate=d;$("date").value=loadedDate;
+    $("guardText").textContent="You have unsaved "+dirtyModes.map(m=>MODES[m].word.toLowerCase()).join(" and ")+" numbers for "+fmtDate(loadedDate)+".";
+    $("guard").hidden=false;window.scrollTo({top:0});return;
+  }
+  loadDay(d);
+});
+$("guardDiscard").onclick=()=>{$("guard").hidden=true;$("date").value=pendingDate;loadDay(pendingDate);pendingDate=null};
+$("guardSave").onclick=async()=>{$("guard").hidden=true;
+  for(const m of ["produced","waste"]){if(isDirty(m)){if(mode!==m)setMode(m);const ok=await save();if(!ok)return}}
+  if(pendingDate){$("date").value=pendingDate;loadDay(pendingDate);pendingDate=null}};
+
+// ---------- saving ----------
+async function save(){
+  if(saving)return false;
+  if(!ready){toast("Form isn't connected yet. Ask the manager.");return false}
+  const name=$("who").value.trim();
+  if(!name){toast("Add your name first");$("who").focus();return false}
+  const d=loadedDate||$("date").value||todayStr();
+  const c={},x=[];
+  for(const k in counts){if(counts[k]>0){if(extras[k])x.push({group:extras[k].group,name:extras[k].name,count:counts[k]});else c[k]=counts[k]}}
+  const body=JSON.stringify({type:mode,date:d,preparedBy:name,notes:$("notes").value.trim(),counts:c,extras:x});
+  saving=true;const btn=$("submit");btn.disabled=true;btn.textContent="Saving…";
+  try{
+    await fetch(SCRIPT_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body});
+    try{localStorage.setItem("eodw_name",name)}catch(e){}
+    // Read it back so staff see exactly what the Sheet has now.
+    const res=await fetch(SCRIPT_URL+"?date="+encodeURIComponent(d),{cache:"no-store"});
+    const data=await res.json();
+    const rec=data&&data[mode];
+    const okCount=rec&&Object.keys(c).every(k=>rec.counts[k]===c[k]);
+    if(!okCount)throw new Error("not confirmed");
+    const m=mode;applyDay(data);toast(MODES[m].word+" saved for "+fmtDate(d));
+    return true;
+  }catch(e){toast("Couldn't confirm the save. Check your connection and tap Save again.");return false}
+  finally{saving=false;btn.disabled=false;paintStatus()}
+}
+$("submit").onclick=save;
+
+// ---------- start ----------
+function fitHeader(){document.documentElement.style.setProperty("--headH",(document.querySelector("header.top").offsetHeight+12)+"px")}
+addEventListener("resize",fitHeader);
+addEventListener("beforeunload",e=>{if(["produced","waste"].some(isDirty)){e.preventDefault();e.returnValue=""}});
+if(!ready)$("setup").hidden=false;
+try{const w=localStorage.getItem("eodw_name");if(w)$("who").value=w}catch(e){}
+$("date").value=todayStr();
+setMode("produced");
+loadDay($("date").value);
+</script>
+</body>
+</html>
