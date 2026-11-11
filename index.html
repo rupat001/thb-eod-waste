@@ -223,7 +223,16 @@ input[type=date]::-webkit-date-and-time-value{text-align:left}
 <script src="common.js"></script>
 <script>
 // Item list: items.js.  Sheet link + start date: config.js.  Shared helpers: common.js.
-const GROUPS = window.EOD_ITEMS;
+// Item list: the Sheet's Items tab (set on the Manager page). Until it loads, use the last copy
+// this device saw, or the built-in items.js list.
+const ITEMS_CACHE="eodw_items";
+function fromServerItems(list){ // [{group,key,label,note,active}] -> [[group,[[key,label,note]...]]...] (active only)
+  const out=[];const idx={};
+  for(const it of list||[]){if(!it.active)continue;if(!(it.group in idx)){idx[it.group]=out.length;out.push([it.group,[]])}out[idx[it.group]][1].push(it.note?[it.key,it.label,it.note]:[it.key,it.label])}
+  return out.filter(g=>g[1].length);
+}
+let GROUPS=(function(){try{const c=JSON.parse(localStorage.getItem(ITEMS_CACHE)||"null");if(Array.isArray(c)&&c.length)return c}catch(e){}return window.EOD_ITEMS})();
+let ITEM_KEYS=GROUPS.flatMap(g=>g[1].map(i=>i[0]));
 const CFG = window.EOD_CONFIG;
 const $ = id => document.getElementById(id);
 const MODES = {
@@ -288,41 +297,65 @@ function clearExtras(){
   for(const k of Object.keys(extras)){rowEl[k].remove();delete rowEl[k];delete extras[k];delete groupOf[k];for(const m in state){delete state[m].counts[k];delete state[m].savedCounts[k]}}
 }
 
+function buildForm(groups){
+  $("groups").textContent="";$("jump").textContent="";
+  for(const k of Object.keys(groupUI))delete groupUI[k];
+  for(const k of Object.keys(groupOf))delete groupOf[k];
+  for(const k of Object.keys(rowEl))delete rowEl[k];
+  for(const k of Object.keys(extras))delete extras[k];
+  for(const m in state){state[m].counts={};state[m].savedCounts={}}
+  counts=state[mode].counts;
+  GROUPS=groups;ITEM_KEYS=groups.flatMap(g=>g[1].map(i=>i[0]));
 for (const [title,items] of GROUPS){
-  const sec=document.createElement("section");sec.className="group";sec.id="g_"+title.toLowerCase();
-  const gh=document.createElement("div");gh.className="ghead";
-  const h=document.createElement("h2");h.textContent=title;
-  const gs=document.createElement("span");gs.className="gsum";
-  gh.append(h,gs);sec.appendChild(gh);
-  const chip=document.createElement("button");chip.type="button";chip.textContent=title;
-  const cn=document.createElement("span");cn.className="n";chip.appendChild(cn);
-  chip.onclick=()=>sec.scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"});
-  $("jump").appendChild(chip);
-  const rows=document.createElement("div");rows.className="rows";
-  groupUI[title]={sum:gs,chip:cn,rows};
-  for (const [key,label,unit] of items) makeRow(rows,title,key,label,unit,false);
-  sec.appendChild(rows);
+    const sec=document.createElement("section");sec.className="group";sec.id="g_"+title.toLowerCase();
+    const gh=document.createElement("div");gh.className="ghead";
+    const h=document.createElement("h2");h.textContent=title;
+    const gs=document.createElement("span");gs.className="gsum";
+    gh.append(h,gs);sec.appendChild(gh);
+    const chip=document.createElement("button");chip.type="button";chip.textContent=title;
+    const cn=document.createElement("span");cn.className="n";chip.appendChild(cn);
+    chip.onclick=()=>sec.scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"});
+    $("jump").appendChild(chip);
+    const rows=document.createElement("div");rows.className="rows";
+    groupUI[title]={sum:gs,chip:cn,rows};
+    for (const [key,label,unit] of items) makeRow(rows,title,key,label,unit,false);
+    sec.appendChild(rows);
+  
+    const add=document.createElement("button");add.type="button";add.className="addbtn";
+    add.textContent="+ Add "+title.replace(/s$/,"").toLowerCase()+" not on the list";
+    const form=document.createElement("div");form.className="addform";form.hidden=true;
+    const nameIn=document.createElement("input");nameIn.type="text";nameIn.id="add_"+title.toLowerCase();nameIn.placeholder="Item name, e.g. Pumpkin Spice";nameIn.maxLength=40;
+    const ok=document.createElement("button");ok.type="button";ok.textContent="Add";
+    const cancel=document.createElement("button");cancel.type="button";cancel.className="cancel";cancel.textContent="Cancel";
+    form.append(nameIn,ok,cancel);
+    const close=()=>{form.hidden=true;add.hidden=false;nameIn.value=""};
+    add.onclick=()=>{add.hidden=true;form.hidden=false;nameIn.focus()};
+    cancel.onclick=close;
+    const commit=()=>{
+      const nm=nameIn.value.trim().replace(/\s+/g," ");
+      if(!nm){nameIn.focus();return}
+      if(items.some(i=>i[1].toLowerCase()===nm.toLowerCase())){toast(nm+" is already on the list");return}
+      const key=addExtra(title,nm);close();if(!counts[key])setCount(key,1);$("c_"+key).focus();
+    };
+    ok.onclick=commit;
+    nameIn.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();commit()}else if(e.key==="Escape")close()};
+    sec.append(add,form);
+    $("groups").appendChild(sec);
+  }
+}
+buildForm(GROUPS);
 
-  const add=document.createElement("button");add.type="button";add.className="addbtn";
-  add.textContent="+ Add "+title.replace(/s$/,"").toLowerCase()+" not on the list";
-  const form=document.createElement("div");form.className="addform";form.hidden=true;
-  const nameIn=document.createElement("input");nameIn.type="text";nameIn.id="add_"+title.toLowerCase();nameIn.placeholder="Item name, e.g. Pumpkin Spice";nameIn.maxLength=40;
-  const ok=document.createElement("button");ok.type="button";ok.textContent="Add";
-  const cancel=document.createElement("button");cancel.type="button";cancel.className="cancel";cancel.textContent="Cancel";
-  form.append(nameIn,ok,cancel);
-  const close=()=>{form.hidden=true;add.hidden=false;nameIn.value=""};
-  add.onclick=()=>{add.hidden=true;form.hidden=false;nameIn.focus()};
-  cancel.onclick=close;
-  const commit=()=>{
-    const nm=nameIn.value.trim().replace(/\s+/g," ");
-    if(!nm){nameIn.focus();return}
-    if(items.some(i=>i[1].toLowerCase()===nm.toLowerCase())){toast(nm+" is already on the list");return}
-    const key=addExtra(title,nm);close();if(!counts[key])setCount(key,1);$("c_"+key).focus();
-  };
-  ok.onclick=commit;
-  nameIn.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();commit()}else if(e.key==="Escape")close()};
-  sec.append(add,form);
-  $("groups").appendChild(sec);
+// Fetch the current list from the Sheet; rebuild if it changed. Never while numbers are being typed.
+async function refreshItems(){
+  try{
+    const r=await api("items");
+    if(!r||!r.ok||!Array.isArray(r.items)||!r.items.length)return;
+    const g=fromServerItems(r.items);
+    if(!g.length||JSON.stringify(g)===JSON.stringify(GROUPS))return;
+    if(["produced","waste"].some(m=>loadedDate&&isDirty(m)))return;
+    try{localStorage.setItem(ITEMS_CACHE,JSON.stringify(g))}catch(e){}
+    buildForm(g);render();
+  }catch(e){/* keep the list we have */}
 }
 
 // ---------- counts & summary ----------
@@ -438,7 +471,7 @@ function takeNewerSaved(m,rec){
 
 // ---------- PIN screen (shared code in common.js) ----------
 showPin = EOD.wirePinGate(pin, async function(){ const r = await api("check"); return !!r.ok; },
-  function(){ loadDay($("date").value || todayStr()); });
+  async function(){ await refreshItems(); loadDay($("date").value || todayStr()); });
 
 async function loadDay(date){
   if(!ready){loadedDate=date;applyDay(null);return}
@@ -496,7 +529,7 @@ async function save(){
   const m=mode;
   try{
     const base=state[m].info?(state[m].info.version||state[m].info.savedAt):"";
-    const data=await api("save",{type:m,date:d,preparedBy:name,notes:$("notes").value.trim(),counts:c,extras:x,itemKeys:window.EOD_ITEM_KEYS,base});
+    const data=await api("save",{type:m,date:d,preparedBy:name,notes:$("notes").value.trim(),counts:c,extras:x,itemKeys:ITEM_KEYS,base});
     try{localStorage.setItem("eodw_name",name)}catch(e){}
     if(data&&!data.ok&&data.error==="changed"&&data.record){
       // Someone else saved this day after this device loaded it. Keep what this person typed,
@@ -538,11 +571,11 @@ document.addEventListener("visibilitychange",()=>{
   // Left open on "today" and it's now a new day: move to the new day (asks first if anything's unsaved).
   if(followToday&&loadedDate!==t){$("date").value=t;$("date").dispatchEvent(new Event("change"));return}
   // Otherwise refresh, so numbers another device saved meanwhile show up. Never while someone is mid-entry.
-  if(!dirty)loadDay(loadedDate);
+  if(!dirty)refreshItems().then(()=>loadDay(loadedDate));
 });
 $("date").value=todayStr();
 setMode("produced");
-loadDay($("date").value);
+(async()=>{ if(pin.get()) await refreshItems(); loadDay($("date").value); })();
 </script>
 </body>
 </html>

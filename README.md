@@ -7,7 +7,8 @@ Manager page: https://rupat001.github.io/thb-eod-waste/manager.html
 
 | File | What it does | Who changes it |
 |---|---|---|
-| `items.js` | **The item list.** The only place items are defined. | Manager |
+| Sheet tab **Items** | **The item list** staff see. Edited on the Manager page → Items. | Manager |
+| `items.js` | Built-in fallback list, used only until the Items tab exists or if the Sheet can't be reached. | Rarely |
 | `config.js` | Sheet link (`SCRIPT_URL`), first entry date (`START_DATE`), API version. | Rarely |
 | `common.js` | Shared code: talking to the Sheet, PIN screen, dates. | Rarely |
 | `index.html` | Staff form (Produced / Waste). | Feature work |
@@ -18,16 +19,21 @@ Manager page: https://rupat001.github.io/thb-eod-waste/manager.html
 Keeping these apart means a change to the manager page can't break the staff form,
 and changing items never touches page code.
 
-## Adding, renaming or removing an item
+## Adding, renaming or hiding an item
 
-Edit only `items.js`:
+Manager page → **Items** (or open `manager.html#items`). The first time, tap **Save items**
+once to copy the built-in list into the Sheet's **Items** tab.
 
-- **Add:** add `["new_key", "Label"]` in the right group. The Sheet gets a new column
-  for it automatically on the next save. Keys: lowercase letters, numbers, `_`.
-- **Rename what staff see:** change the label. Never change a key once it's been used.
-- **Remove:** delete the line. Its old numbers stay in the Sheet.
+- **Add:** type the name under its category → Add, fill in its **ClearView row**
+  (the exact row name on the ClearView Bakery sheet), Save items. The Sheet gets a new
+  column for it right away.
+- **Rename / note / reorder:** edit the boxes or use ↑ ↓, then Save items.
+- **Remove:** tap **Hide**. Saved items can't be deleted, so their past numbers stay readable.
+  Tap **Show** to bring one back.
+- **New category:** "+ Add category" at the bottom.
 
-Then tell Claude the new key's ClearView name so "enter approved waste" knows where it goes.
+Staff phones pick up the new list the next time they open the form (not while they
+have unsaved numbers). Don't edit the Items tab by hand; use the Manager page.
 
 ## Rules that keep things from breaking
 
@@ -38,6 +44,7 @@ Then tell Claude the new key's ClearView name so "enter approved waste" knows wh
 3. Every save is also copied to the **History** tab, which is never overwritten.
    If the Submissions tab is ever damaged, the numbers can be rebuilt from History.
 4. Status (column E) only takes: Submitted, Approved, Entered, Changed after entry, Recorded.
+5. Item keys (the Sheet column names) never change once saved, even when an item is renamed.
 
 ## Undo a bad update
 

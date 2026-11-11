@@ -84,6 +84,44 @@ td.hi{color:var(--warn);font-weight:700}
 .kv{display:grid;gap:4px;font-size:.86rem}
 .kv b{font-weight:600}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:.9rem;z-index:8;max-width:calc(100% - 32px)}
+.views{display:inline-grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:3px;max-width:360px;width:100%}
+.views button{border:0;background:transparent;border-radius:8px;min-height:40px;padding:8px 12px;font-weight:600;color:var(--muted);cursor:pointer}
+.views button[aria-selected="true"]{background:var(--accent);color:var(--accent-fg)}
+body.items-mode .counts{display:none}
+.cat{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.cathead{display:flex;align-items:center;gap:8px;padding:12px 12px 10px 16px;border-bottom:1px solid var(--line)}
+.cathead input{flex:1;min-width:0;font-family:var(--display);font-weight:800;font-size:1.15rem;border:1px solid transparent;background:transparent;border-radius:8px;padding:6px 8px;color:var(--fg)}
+.cathead input:hover,.cathead input:focus{border-color:var(--line);background:var(--bg)}
+.iconbtn{border:1px solid var(--line);background:var(--bg);border-radius:8px;min-width:40px;min-height:40px;font-size:1rem;cursor:pointer;color:var(--fg)}
+.iconbtn:disabled{opacity:.35;cursor:default}
+.irow{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,.8fr) minmax(0,1.4fr) auto;gap:8px;align-items:center;padding:10px 12px 10px 16px;border-top:1px solid var(--line)}
+.irow:first-of-type{border-top:0}
+.irow input{width:100%;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:9px 10px;font-size:.95rem;color:var(--fg)}
+.irow input.cv{font-size:.85rem}
+.irow .ctrls{display:flex;gap:6px;align-items:center}
+.irow.off input{opacity:.5;text-decoration:line-through}
+.irow.new{background:var(--accent-soft)}
+.irow .lab{display:none;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.colhead{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,.8fr) minmax(0,1.4fr) auto;gap:8px;padding:8px 12px 0 16px;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.colhead span:last-child{width:142px}
+.hidebtn{min-width:62px}
+.additem{display:flex;gap:8px;padding:10px 12px 12px 16px;border-top:1px dashed var(--line)}
+.additem input{flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:9px 10px;font-size:.95rem;color:var(--fg)}
+#cats{display:grid;gap:16px}
+.addcat{padding-top:4px}
+.addcatform{display:flex;gap:8px;flex-wrap:wrap}
+.addcatform input{flex:1;min-width:180px;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:10px;font-size:1rem;color:var(--fg)}
+.savebar{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+.savebar .wrap{display:flex;align-items:center;gap:10px;padding-block:10px}
+.dirtynote{flex:1;min-width:0;color:var(--warn);font-weight:700;font-size:.9rem}
+#itemsView .wrap{padding-bottom:90px}
+.banner.info{background:var(--info-soft);color:var(--info)}
+@media (max-width:620px){
+  .colhead{display:none}
+  .irow{grid-template-columns:1fr 1fr;grid-template-areas:"name name" "note cv" "ctrls ctrls"}
+  .irow .f-name{grid-area:name}.irow .f-note{grid-area:note}.irow .f-cv{grid-area:cv}.irow .ctrls{grid-area:ctrls;justify-content:flex-end}
+  .irow .lab{display:block;margin-bottom:3px}
+}
 .pingate{position:fixed;inset:0;z-index:20;background:var(--bg);display:grid;place-items:center;padding:16px}
 .pincard{width:100%;max-width:340px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px;display:grid;gap:12px;text-align:center}
 .pincard h2{font-family:var(--display);font-weight:800;font-size:1.5rem;margin:0}
@@ -106,22 +144,49 @@ td.hi{color:var(--warn);font-weight:700}
 <header class="top">
   <div class="wrap">
     <div class="trow">
-      <h1>Manager review</h1>
+      <h1 id="title">Manager review</h1>
       <div class="tools">
         <label for="range" class="note" style="margin:0">Show</label>
         <select id="range"><option value="7">Last 7 days</option><option value="14" selected>Last 14 days</option><option value="30">Last 30 days</option><option value="all">Since start</option></select>
         <button class="ghost" id="refresh" type="button">Refresh</button>
       </div>
     </div>
+    <div class="views" role="tablist" aria-label="Manager pages">
+      <button type="button" role="tab" id="v_review" aria-selected="true">Review days</button>
+      <button type="button" role="tab" id="v_items" aria-selected="false">Items</button>
+    </div>
     <div class="counts" id="counts"><span class="chip">Loading…</span></div>
   </div>
 </header>
 
-<main>
+<main id="reviewView">
   <div class="wrap">
     <p class="note">Check each day's waste, then tap <b>Approve</b>. Approved days are ready for Claude to enter into ClearView ("enter approved waste"). Production is for your records only.</p>
     <div id="err" class="banner" hidden></div>
     <div id="days"></div>
+  </div>
+</main>
+
+<main id="itemsView" hidden>
+  <div class="wrap">
+    <p class="note">This is the list staff see on the form. Rename, reorder, hide or add items, then tap <b>Save items</b>. Staff get the new list the next time they open the form. Saved items can't be deleted, only hidden, so their past numbers stay. <b>ClearView row</b> is the item's exact name on the ClearView Bakery sheet, so Claude knows where to enter it.</p>
+    <div id="itemsBanner" class="banner" hidden></div>
+    <div id="cats"></div>
+    <div class="addcat" id="addCatWrap">
+      <button type="button" class="btn link" id="addCatBtn">+ Add category</button>
+      <div class="addcatform" id="addCatForm" hidden>
+        <input type="text" id="addCatName" maxlength="20" placeholder="Category name, e.g. Seasonal" aria-label="New category name">
+        <button type="button" class="btn primary" id="addCatOk">Add</button>
+        <button type="button" class="btn link" id="addCatCancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+  <div class="savebar" id="saveBar" hidden>
+    <div class="wrap">
+      <span class="dirtynote" id="dirtyNote">Unsaved changes</span>
+      <button type="button" class="btn link" id="itemsDiscard">Discard</button>
+      <button type="button" class="btn okb" id="itemsSave">Save items</button>
+    </div>
   </div>
 </main>
 <div class="toast" id="toast" role="status" hidden></div>
@@ -142,7 +207,10 @@ td.hi{color:var(--warn);font-weight:700}
 <script>
 // Item list: items.js.  Sheet link + start date: config.js.  Shared helpers: common.js.
 const CFG=window.EOD_CONFIG;
-const GROUPS=window.EOD_ITEMS.map(([g,items])=>[g,items.map(([k,label,note])=>[k,note?label+" ("+note.replace(/, as counted$/,"")+")":label])]);
+const labelOf=(label,note)=>note?label+" ("+note.replace(/, as counted$/,"")+")":label;
+// Labels for the Details table. Includes hidden items so past days still show their names.
+let GROUPS=window.EOD_ITEMS.map(([g,items])=>[g,items.map(([k,label,note])=>[k,labelOf(label,note)])]);
+function groupsFromServer(list){const out=[];const idx={};for(const it of list){if(!(it.group in idx)){idx[it.group]=out.length;out.push([it.group,[]])}out[idx[it.group]][1].push([it.key,labelOf(it.label,it.note)])}return out}
 const $=EOD.$, toast=EOD.toast, ymd=EOD.ymd;
 const fmtDate=s=>EOD.fmtDate(s,true), fmtTime=EOD.fmtDateTime;
 function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e}
@@ -151,7 +219,7 @@ const pin=EOD.makePin("eodw_mgr_pin");
 let showPin=function(){};
 const API=EOD.makeApi(pin,function(m){showPin(m)});
 const api=API.call;
-showPin=EOD.wirePinGate(pin,async function(){const r=await api("list",{days:1});return !!r.ok},function(){load()});
+showPin=EOD.wirePinGate(pin,async function(){const r=await api("list",{days:1});return !!r.ok},function(){load();if(!$("itemsView").hidden&&!itemsLoaded)loadItems()});
 let rows=[], open=new Set(), busy=false, loadSeq=0;
 
 async function load(){
@@ -159,9 +227,10 @@ async function load(){
   $("refresh").disabled=true;$("err").hidden=true;
   try{
     const seq=++loadSeq;
-    const r=await api("list",{days:rangeDays()});
+    const [r,it]=await Promise.all([api("list",{days:rangeDays()}),api("items").catch(()=>null)]);
     if(seq!==loadSeq)return; // a newer load (e.g. range changed) is on its way; ignore this older answer
     if(!r.ok)throw new Error(r.error);
+    if(it&&it.ok&&Array.isArray(it.items)&&it.items.length)GROUPS=groupsFromServer(it.items);
     rows=r.rows;render();
   }catch(e){if(!e.pin){$("err").hidden=false;$("err").textContent="Couldn't load from the Sheet. Check the connection and tap Refresh."}}
   finally{$("refresh").disabled=false}
@@ -280,10 +349,128 @@ async function setStatus(r,status,btn){
   finally{busy=false;btn.disabled=false}
 }
 
+// ================= Items editor =================
+// ClearView Bakery row for each built-in item (used only the first time the list is saved).
+const CV_DEFAULT={apple_fritter:"Donut - Apple Fritters",oreo:"Donut - Oreo Crème Donut",vanilla_cream:"Donut - Vanilla Cream",boston_cream:"Donut - Boston Cream",canadian_maple:"Donut - Canadian Maple",raspberry:"Donut - Raspberry Fill",vanilla_dip:"Donut - Vanilla Dip",chocolate_dip:"Donut - Chocolate Dip",maple_dip:"Donut - Maple Dip",honey_dip:"Donut - Honey Dip",honey_cruller:"Donut - Honey Cruller",chocolate_cruller:"Donut - Chocolate Cruller",sour_cream:"Donut - Sour Cream Glazed",blueberry_sour_cream:"Blueberry Sour Cream Donut - Finished",chocolate_glazed:"Donut - Chocolate Glazed",double_chocolate:"Donut - Double Chocolate",old_fashioned_plain:"Donut - Old Fashion Plain",yeast_rings:"Donut - Yeast Rings",yeast_fills:"Donut - Yeast Fills",tb_honey_dip:"Timbit - Honey Dip",tb_chocolate_glazed:"Timbit - Chocolate Glazed",tb_blueberry_sour_cream:"Timbit Classic Sour Cream Blueberry Glazed",tb_birthday_cake:"Timbits - Birthday Cake",chocolate_chunk:"Cookies - Chocolate Chunk",salted_caramel:"Salted Caramel Cookie",muffin_chocolate_chip:"Muffin - Chocolate Chip",muffin_blueberry:"Muffins - Wild Blueberry",eggs:"Protein - Freshly Cracked Eggs - 50 minutes",hashbrown:"Protein - Hash Brown",sausage:"Protein - Sausage",bacon_egg_bites:"Omelette Bites-Bacon/Cheese",spinach_egg_bites:"Omelette Bites - Egg White and",bacon:"Bacon",chicken:"Protein - Chicken (Ounce)",steak:"Protein - Steak (Ounce)",bagel_plain:"Bagels - Plain",bagel_everything:"Bagels - Everything",biscuit:"Biscuit - Buttermilk Biscuits",english_muffin:"Bread - Plain English Muffins",croissant:"Croissant Pinched",sourdough:"Bread - Sourdough Panini",artisan_bun:"Artisan Bread - Sliced"};
+let cats=[], savedJSON="", itemsVersion="0", itemsLoaded=false, itemsSaving=false;
+
+function toCats(list){const out=[];const idx={};for(const it of list){if(!(it.group in idx)){idx[it.group]=out.length;out.push({name:it.group,items:[]})}out[idx[it.group]].items.push({key:it.key,label:it.label,note:it.note||"",active:it.active!==false,clearview:it.clearview||"",isNew:false})}return out}
+function fromBuiltIn(){return window.EOD_ITEMS.map(([g,items])=>({name:g,items:items.map(([k,label,note])=>({key:k,label,note:note||"",active:true,clearview:CV_DEFAULT[k]||"",isNew:false}))}))}
+function flatItems(){const out=[];for(const c of cats)for(const it of c.items)out.push({group:c.name.trim(),key:it.key,label:it.label.trim(),note:it.note.trim(),active:it.active,clearview:it.clearview.trim()});return out}
+function snapshot(){return JSON.stringify(cats.map(c=>({n:c.name.trim(),i:c.items.map(it=>[it.key,it.label.trim(),it.note.trim(),it.active,it.clearview.trim()])})))}
+function itemsDirty(){return itemsLoaded&&snapshot()!==savedJSON}
+function paintDirty(){const d=itemsDirty();$("saveBar").hidden=!d;$("dirtyNote").textContent=d?"Unsaved changes":""}
+
+async function loadItems(){
+  $("itemsBanner").hidden=true;
+  try{
+    const r=await api("items");
+    if(!r.ok)throw new Error(r.error);
+    itemsVersion=String(r.version||"0");
+    if(Array.isArray(r.items)&&r.items.length){cats=toCats(r.items);savedJSON=snapshot()}
+    else{cats=fromBuiltIn();savedJSON="";
+      $("itemsBanner").className="banner info";$("itemsBanner").hidden=false;
+      $("itemsBanner").textContent="The item list isn't stored in the Sheet yet. This is the current built-in list. Tap Save items once to start managing it here.";}
+    itemsLoaded=true;renderItems();
+  }catch(e){if(!e.pin){$("itemsBanner").className="banner";$("itemsBanner").hidden=false;$("itemsBanner").textContent="Couldn't load the item list. Check the connection and try again."}}
+}
+
+function slug(label){let s=label.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g,"_").replace(/^_+|_+$/g,"").slice(0,30);if(!/^[a-z]/.test(s))s="item_"+s;if(s.length<2)s+="_x";return s}
+function uniqueKey(label,group){const used=new Set();for(const c of cats)for(const it of c.items)if(it.key)used.add(it.key);
+  let base=slug(label);if(used.has(base))base=slug(group.split(" ")[0]+" "+label);let k=base,n=2;while(used.has(k))k=base.slice(0,36)+"_"+(n++);return k}
+
+function renderItems(){
+  const box=$("cats");box.textContent="";
+  cats.forEach((c,ci)=>{
+    const card=el("section","cat");
+    const head=el("div","cathead");
+    const name=document.createElement("input");name.type="text";name.value=c.name;name.maxLength=20;name.setAttribute("aria-label","Category name");
+    name.oninput=()=>{c.name=name.value;paintDirty()};
+    const up=el("button","iconbtn","↑");up.type="button";up.title="Move category up";up.setAttribute("aria-label","Move "+c.name+" up");up.disabled=ci===0;up.onclick=()=>{[cats[ci-1],cats[ci]]=[cats[ci],cats[ci-1]];renderItems();paintDirty()};
+    const dn=el("button","iconbtn","↓");dn.type="button";dn.title="Move category down";dn.setAttribute("aria-label","Move "+c.name+" down");dn.disabled=ci===cats.length-1;dn.onclick=()=>{[cats[ci+1],cats[ci]]=[cats[ci],cats[ci+1]];renderItems();paintDirty()};
+    head.append(name,up,dn);card.appendChild(head);
+    const ch=el("div","colhead");ch.append(el("span",null,"Item (what staff see)"),el("span",null,"Small note"),el("span",null,"ClearView row"),el("span",null,""));card.appendChild(ch);
+    const list=el("div");
+    c.items.forEach((it,ii)=>{
+      const r=el("div","irow"+(it.active?"":" off")+(it.isNew?" new":""));
+      const mk=(cls,lab,val,max,ph,on)=>{const w=el("div",cls);w.appendChild(el("span","lab",lab));const i=document.createElement("input");i.type="text";i.value=val;i.maxLength=max;i.placeholder=ph;i.setAttribute("aria-label",lab+" for "+(it.label||"new item"));i.oninput=()=>{on(i.value);paintDirty()};w.appendChild(i);return w};
+      r.appendChild(mk("f-name","Item",it.label,40,"Item name",v=>it.label=v));
+      r.appendChild(mk("f-note","Note",it.note,30,"Optional",v=>it.note=v));
+      const cvw=mk("f-cv","ClearView row",it.clearview,80,"e.g. Timbit - Apple Cider",v=>it.clearview=v);cvw.querySelector("input").classList.add("cv");r.appendChild(cvw);
+      const ctr=el("div","ctrls");
+      const u=el("button","iconbtn","↑");u.type="button";u.setAttribute("aria-label","Move "+it.label+" up");u.disabled=ii===0;u.onclick=()=>{[c.items[ii-1],c.items[ii]]=[c.items[ii],c.items[ii-1]];renderItems();paintDirty()};
+      const d=el("button","iconbtn","↓");d.type="button";d.setAttribute("aria-label","Move "+it.label+" down");d.disabled=ii===c.items.length-1;d.onclick=()=>{[c.items[ii+1],c.items[ii]]=[c.items[ii],c.items[ii+1]];renderItems();paintDirty()};
+      let h;
+      if(it.isNew){h=el("button","iconbtn hidebtn","Remove");h.onclick=()=>{c.items.splice(ii,1);if(!c.items.length&&c.isNew)cats.splice(ci,1);renderItems();paintDirty()}}
+      else{h=el("button","iconbtn hidebtn",it.active?"Hide":"Show");h.title=it.active?"Hide from the staff form (past numbers are kept)":"Show on the staff form again";h.onclick=()=>{it.active=!it.active;renderItems();paintDirty()}}
+      h.type="button";ctr.append(u,d,h);r.appendChild(ctr);list.appendChild(r);
+    });
+    card.appendChild(list);
+    const add=el("div","additem");
+    const ai=document.createElement("input");ai.type="text";ai.maxLength=40;ai.placeholder="Add item to "+c.name+", e.g. Apple Cider";ai.setAttribute("aria-label","New item in "+c.name);
+    const ab=el("button","btn primary","Add");ab.type="button";
+    const addIt=()=>{const nm=ai.value.trim().replace(/\s+/g," ");if(!nm){ai.focus();return}
+      if(c.items.some(x=>x.label.trim().toLowerCase()===nm.toLowerCase())){toast(nm+" is already in "+c.name);return}
+      c.items.push({key:"",label:nm,note:"",active:true,clearview:"",isNew:true});renderItems();paintDirty();
+      const rows=$("cats").children[ci].querySelectorAll(".irow");const last=rows[rows.length-1];if(last)last.querySelector(".f-cv input").focus()};
+    ab.onclick=addIt;ai.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();addIt()}};
+    add.append(ai,ab);card.appendChild(add);
+    box.appendChild(card);
+  });
+  paintDirty();
+}
+
+$("addCatBtn").onclick=()=>{$("addCatBtn").hidden=true;$("addCatForm").hidden=false;$("addCatName").focus()};
+$("addCatCancel").onclick=()=>{$("addCatForm").hidden=true;$("addCatBtn").hidden=false;$("addCatName").value=""};
+const addCat=()=>{const nm=$("addCatName").value.trim().replace(/\s+/g," ");if(!nm){$("addCatName").focus();return}
+  if(cats.some(c=>c.name.trim().toLowerCase()===nm.toLowerCase())){toast(nm+" already exists");return}
+  cats.push({name:nm,items:[],isNew:true});$("addCatCancel").onclick();renderItems();paintDirty();
+  const last=$("cats").lastElementChild;if(last){last.scrollIntoView({block:"center"});last.querySelector(".additem input").focus()}};
+$("addCatOk").onclick=addCat;$("addCatName").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();addCat()}};
+
+$("itemsDiscard").onclick=()=>{if(savedJSON){loadItems()}else{cats=fromBuiltIn();renderItems()}};
+$("itemsSave").onclick=async()=>{
+  if(itemsSaving)return;
+  // Check before sending
+  const names=new Set();
+  for(const c of cats){const n=c.name.trim();
+    if(!n){toast("Every category needs a name.");return}
+    if(names.has(n.toLowerCase())){toast("Two categories are called "+n+".");return}names.add(n.toLowerCase());
+    const seen=new Set();
+    for(const it of c.items){const l=it.label.trim();if(!l){toast("An item in "+n+" has no name.");return}
+      if(seen.has(l.toLowerCase())){toast(l+" is listed twice in "+n+".");return}seen.add(l.toLowerCase())}}
+  if(!cats.some(c=>c.items.some(it=>it.active))){toast("At least one item must be shown.");return}
+  cats=cats.filter(c=>c.items.length);
+  for(const c of cats)for(const it of c.items)if(!it.key)it.key=uniqueKey(it.label,c.name.trim());
+  itemsSaving=true;$("itemsSave").disabled=true;$("itemsSave").textContent="Saving…";
+  try{
+    const r=await api("setItems",{items:flatItems(),version:itemsVersion});
+    if(r.ok){itemsVersion=String(r.version);cats=toCats(r.items);savedJSON=snapshot();GROUPS=groupsFromServer(r.items);$("itemsBanner").hidden=true;renderItems();toast("Items saved. Staff get the new list next time they open the form.",5000)}
+    else if(r.error==="items_changed"){toast("Someone else changed the list. Loaded their version; please redo your change.",6000);await loadItems()}
+    else toast(r.message||"Couldn't save the list. Try again.",6000);
+  }catch(e){if(!e.pin)toast("Couldn't reach the Sheet. Try again.")}
+  finally{itemsSaving=false;$("itemsSave").disabled=false;$("itemsSave").textContent="Save items"}
+};
+
+function setView(v){
+  const items=v==="items";
+  if(!items&&itemsDirty()){toast("Save or discard your item changes first.");return}
+  $("reviewView").hidden=items;$("itemsView").hidden=!items;document.body.classList.toggle("items-mode",items);
+  $("v_review").setAttribute("aria-selected",!items);$("v_items").setAttribute("aria-selected",items);
+  $("title").textContent=items?"Items":"Manager review";
+  document.querySelector(".tools").style.visibility=items?"hidden":"visible";
+  if(items&&!itemsLoaded&&pin.get())loadItems();
+  try{history.replaceState(null,"",items?"#items":location.pathname+location.search)}catch(e){}
+}
+$("v_review").onclick=()=>setView("review");
+$("v_items").onclick=()=>setView("items");
+addEventListener("beforeunload",e=>{if(itemsDirty()){e.preventDefault();e.returnValue=""}});
+
 $("refresh").onclick=load;
 $("range").onchange=load;
-document.addEventListener("visibilitychange",()=>{if(!document.hidden&&pin.get())load()});
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&pin.get()&&$("itemsView").hidden)load()});
 load();
+if(location.hash==="#items")setView("items");
 </script>
 </body>
 </html>
