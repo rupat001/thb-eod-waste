@@ -1,5 +1,5 @@
 // ============================================================
-//  EOD Waste / Production — Google Apps Script (API version 2, rev 3)
+//  EOD Waste / Production — Google Apps Script (API version 2, rev 4)
 //
 //  Paste into your Google Sheet: Extensions > Apps Script, replace everything, Save.
 //  PINs live in Project Settings > Script properties (never in this code):
@@ -181,6 +181,10 @@ function doPost(e) {
       case 'setStatus':
         if (role !== 'manager') return json_({ ok: false, error: 'manager_only' });
         return json_(setStatus_(data));
+      case 'items': return json_(items_());
+      case 'setItems':
+        if (role !== 'manager') return json_({ ok: false, error: 'manager_only' });
+        return json_(setItems_(data));
       default: return json_({ ok: false, error: 'unknown_action' });
     }
   } catch (err) {
@@ -328,5 +332,180 @@ function setStatus_(data) {
   }
 }
 
+// ============================================================
+//  ITEM LIST (managed from the Manager page, stored in the Items tab)
+//  Columns: Order, Category, Key, Label, Note, Active, ClearView row
+//  - Key never changes once saved (it names the Submissions column).
+//  - Items are hidden, never deleted, so old numbers keep their history.
+//  - Until the Items tab exists, pages use their built-in items.js list.
+// ============================================================
+const ITEMS_NAME = 'Items';
+const ITEMS_HEADER = ['Order', 'Category', 'Key', 'Label', 'Note', 'Active', 'ClearView row'];
+const MAX_ITEMS = 300;
+
+function itemsVersion_() {
+  return String(PropertiesService.getScriptProperties().getProperty('ITEMS_VERSION') || '0');
+}
+
+// -> [{ group, key, label, note, active, clearview }] in order, or null if no Items tab yet
+function readItems_() {
+  const sh = ss_().getSheetByName(ITEMS_NAME);
+  if (!sh || sh.getLastRow() < 2) return null;
+  return sh.getRange(2, 1, sh.getLastRow() - 1, ITEMS_HEADER.length).getValues()
+    .filter(function (r) { return KEY_RE.test(String(r[2])); })
+    .sort(function (a, b) { return Number(a[0]) - Number(b[0]); })
+    .map(function (r) {
+      return { group: String(r[1]), key: String(r[2]), label: String(r[3]), note: String(r[4] || ''),
+               active: !(r[5] === false || String(r[5]).toUpperCase() === 'FALSE'), clearview: String(r[6] || '') };
+    });
+}
+
+function items_() {
+  return { ok: true, items: readItems_(), version: itemsVersion_() };
+}
+
+// { items, version } -> { ok, items, version }   (manager only)
+function setItems_(data) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    // Two managers editing at once: refuse to overwrite a list this page never saw.
+    if (String(data.version) !== itemsVersion_()) return { ok: false, error: 'items_changed', items: readItems_(), version: itemsVersion_() };
+    const list = Array.isArray(data.items) ? data.items : [];
+    if (!list.length || list.length > MAX_ITEMS) return { ok: false, error: 'bad_items', message: 'The list must have 1 to ' + MAX_ITEMS + ' items.' };
+    const seen = {};
+    const clean = [];
+    for (let i = 0; i < list.length; i++) {
+      const it = list[i] || {};
+      const key = String(it.key || ''), group = String(it.group || '').trim(), label = String(it.label || '').trim();
+      if (!KEY_RE.test(key)) return { ok: false, error: 'bad_items', message: 'Bad item key: ' + key };
+      if (seen[key]) return { ok: false, error: 'bad_items', message: 'Duplicate item: ' + label };
+      if (!group || group.length > 20) return { ok: false, error: 'bad_items', message: 'Category names must be 1–20 characters.' };
+      if (!label || label.length > 40) return { ok: false, error: 'bad_items', message: 'Item names must be 1–40 characters.' };
+      seen[key] = true;
+      clean.push([i + 1, group, key, label, String(it.note || '').trim().slice(0, 30), it.active !== false, String(it.clearview || '').trim().slice(0, 80)]);
+    }
+    // Saved items can be hidden but never removed, so their history stays readable.
+    const before = readItems_() || [];
+    const dropped = before.filter(function (b) { return !seen[b.key]; });
+    if (dropped.length) return { ok: false, error: 'bad_items', message: 'Items can be hidden but not deleted: ' + dropped.map(function (d) { return d.label; }).join(', ') };
+
+    let sh = ss_().getSheetByName(ITEMS_NAME);
+    if (!sh) sh = ss_().insertSheet(ITEMS_NAME);
+    sh.clearContents();
+    ensureRows_(sh, clean.length + 1);
+    sh.getRange(1, 1, clean.length + 1, ITEMS_HEADER.length).setNumberFormat('@');
+    sh.getRange(1, 1, 1, ITEMS_HEADER.length).setValues([ITEMS_HEADER]).setFontWeight('bold');
+    sh.getRange(2, 1, clean.length, ITEMS_HEADER.length).setValues(clean.map(function (r) { return [String(r[0]), r[1], r[2], r[3], r[4], r[5] ? 'TRUE' : 'FALSE', r[6]]; }));
+    sh.setFrozenRows(1);
+    // New items get their Submissions column now, in list order.
+    ensureItemColumns_(getSheet_(), clean.map(function (r) { return r[2]; }));
+    const v = String(Number(itemsVersion_()) + 1);
+    PropertiesService.getScriptProperties().setProperty('ITEMS_VERSION', v);
+    SpreadsheetApp.flush();
+    return { ok: true, items: readItems_(), version: v };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 // Run once from the editor: creates both tabs if they're missing.
 function setup() { getSheet_(); getHistory_(); }
+
+// ============================================================
+//  MORNING CHECK (runs on Google's schedule — no Claude needed)
+//
+//  Every morning around 7:00 AM it emails a short summary:
+//   - yesterday's Produced / Waste missing?
+//   - waste days waiting for approval
+//   - days changed after they were entered in ClearView
+//   - approved days not entered yet
+//  Turn on once: pick setupMorningCheck in the toolbar, Run, Allow.
+//  It sends one email right away so you know it works.
+//  Recipients: the Sheet owner, or Script property ALERT_EMAILS
+//  (comma-separated) to send to other people instead.
+//  Turn off: run stopMorningCheck.
+// ============================================================
+const CHECK_HOUR = 7;
+const MANAGER_URL = 'https://rupat001.github.io/thb-eod-waste/manager.html';
+const FORM_URL = 'https://rupat001.github.io/thb-eod-waste/';
+
+function setupMorningCheck() {
+  stopMorningCheck();
+  ScriptApp.newTrigger('morningCheck').timeBased()
+    .everyDays(1).atHour(CHECK_HOUR).nearMinute(0)
+    .inTimezone(Session.getScriptTimeZone()).create();
+  morningCheck();
+}
+
+function stopMorningCheck() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'morningCheck') ScriptApp.deleteTrigger(t);
+  });
+}
+
+function fmtDay_(d) {
+  const p = d.split('-').map(Number);
+  return Utilities.formatDate(new Date(p[0], p[1] - 1, p[2], 12), Session.getScriptTimeZone(), 'EEE MMM d');
+}
+
+// Pure summary from rows (kept separate so it can be tested).
+function buildMorningSummary_(rows, today) {
+  const tz = Session.getScriptTimeZone();
+  const y = new Date(today.getTime()); y.setDate(y.getDate() - 1);
+  const yesterday = Utilities.formatDate(y, tz, 'yyyy-MM-dd');
+  const f = new Date(today.getTime()); f.setDate(f.getDate() - 14);
+  const from = Utilities.formatDate(f, tz, 'yyyy-MM-dd');
+
+  const byKey = {};
+  rows.forEach(function (r) { byKey[r.date + '|' + r.type] = r; });
+  const missing = [];
+  if (yesterday >= START_DATE) {
+    if (!byKey[yesterday + '|Produced']) missing.push('Produced');
+    if (!byKey[yesterday + '|Waste']) missing.push('Waste');
+  }
+  const waste = rows.filter(function (r) { return r.type === 'Waste' && r.date >= from; })
+    .sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+  const waiting = waste.filter(function (r) { return r.status === 'Submitted'; });
+  const changed = waste.filter(function (r) { return r.status === 'Changed after entry'; });
+  const approved = waste.filter(function (r) { return r.status === 'Approved'; });
+  const notes = ['Produced', 'Waste'].map(function (t) { const r = byKey[yesterday + '|' + t]; return r && r.notes ? t + ': ' + r.notes : ''; }).filter(String);
+
+  const day = fmtDay_(yesterday);
+  const problems = [];
+  if (missing.length) problems.push('Missing: ' + missing.join(' and ') + ' for ' + day);
+  if (waiting.length) problems.push(waiting.length + ' waiting for approval');
+  if (changed.length) problems.push(changed.length + ' changed after entry');
+  if (approved.length) problems.push(approved.length + ' ready to enter');
+  const subject = 'EOD Waste – ' + (problems.length ? problems.join(' · ') : 'All good for ' + day);
+
+  const lines = [];
+  lines.push(missing.length ? 'MISSING for ' + day + ': ' + missing.join(' and ') + '. Staff can still enter it on the form.' : 'Yesterday (' + day + '): Produced and Waste both entered.');
+  const list = function (title, arr, tail) {
+    if (!arr.length) return;
+    lines.push('');
+    lines.push(title + ':');
+    arr.forEach(function (r) { lines.push('  • ' + fmtDay_(r.date) + ' – ' + (r.preparedBy || 'no name')); });
+    if (tail) lines.push('  ' + tail);
+  };
+  list('Waiting for your approval', waiting, 'Approve on the Manager page.');
+  list('Changed after entry (ClearView needs fixing)', changed, 'Approve again, then ask Claude to "enter approved waste" or fix ClearView by hand.');
+  list('Approved, not entered in ClearView yet', approved, 'Ask Claude to "enter approved waste", or enter them by hand.');
+  if (notes.length) { lines.push(''); lines.push('Notes from yesterday:'); notes.forEach(function (n) { lines.push('  • ' + n); }); }
+  lines.push('');
+  lines.push('Manager page: ' + MANAGER_URL);
+  lines.push('Staff form: ' + FORM_URL);
+  return { subject: subject, body: lines.join('\n'), needsAction: problems.length > 0 };
+}
+
+function morningCheck() {
+  const sh = getSheet_();
+  const last = sh.getLastRow();
+  const h = header_(sh);
+  const rows = last < 2 ? [] : sh.getRange(2, 1, last - 1, Math.max(h.names.length, FIXED.length)).getValues()
+    .map(function (r) { return rowToObj_(r, h); });
+  const s = buildMorningSummary_(rows, new Date());
+  const to = String(PropertiesService.getScriptProperties().getProperty('ALERT_EMAILS') || '').trim()
+    || Session.getEffectiveUser().getEmail();
+  MailApp.sendEmail({ to: to, subject: s.subject, body: s.body, name: 'EOD Waste' });
+}
