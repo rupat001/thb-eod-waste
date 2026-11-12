@@ -110,8 +110,6 @@ section.group.on h2{color:var(--accent)}
 .status.saved .dot{background:var(--ok)}
 .status.dirty .dot{background:var(--warn)}
 .status.dirty{color:var(--warn);font-weight:600}
-.row .was{display:block;font-size:.75rem;color:var(--warn);font-weight:600}
-.row.changed .step input{border-color:var(--warn);background:var(--warn-soft)}
 .loading #groups{opacity:.45;pointer-events:none}
 
 /* ---- Produced = green page, Waste = red page, so the two are hard to mix up ---- */
@@ -310,7 +308,7 @@ const MODES = {
     bar:"ENTERING WASTE", sub:"Enter only what you're throwing out now",
     hint:"Enter only what you're throwing out now. It's added to the day's total. Entered too many earlier? Tap − below 0 (e.g. −2) to take them off."}
 };
-const blank = () => ({counts:{}, notes:"", extras:[], savedCounts:{}, savedNotes:"", savedExtras:[], info:null, totals:{}, batches:[]});
+const blank = () => ({counts:{}, notes:"", info:null, totals:{}, batches:[]});
 const state = {produced:blank(), waste:blank()};
 let mode = "produced";
 let counts = state.produced.counts;
@@ -345,7 +343,6 @@ function makeRow(rows, title, key, label, unit, isExtra){
     rm.onclick=()=>{setCount(key,0)};
     b.appendChild(rm);
   }
-  const was=document.createElement("span");was.className="was";was.hidden=true;n.appendChild(was);
   const st=document.createElement("div");st.className="step";
   const minus=document.createElement("button");minus.type="button";minus.textContent="−";minus.setAttribute("aria-label","Less "+label);
   const inp=document.createElement("input");inp.id="c_"+key;inp.inputMode="numeric";inp.pattern="[0-9]*";inp.value="0";inp.setAttribute("aria-label",title+" "+label);
@@ -366,7 +363,7 @@ function addExtra(group,name){
   return key;
 }
 function clearExtras(){
-  for(const k of Object.keys(extras)){rowEl[k].remove();delete rowEl[k];delete extras[k];delete groupOf[k];for(const m in state){delete state[m].counts[k];delete state[m].savedCounts[k]}}
+  for(const k of Object.keys(extras)){rowEl[k].remove();delete rowEl[k];delete extras[k];delete groupOf[k];for(const m in state){delete state[m].counts[k];delete state[m].totals[k]}}
 }
 
 function buildForm(groups){
@@ -375,7 +372,7 @@ function buildForm(groups){
   for(const k of Object.keys(groupOf))delete groupOf[k];
   for(const k of Object.keys(rowEl))delete rowEl[k];
   for(const k of Object.keys(extras))delete extras[k];
-  for(const m in state){state[m].counts={};state[m].savedCounts={}}
+  for(const m in state){state[m].counts={};state[m].totals={}}
   for(const [,items] of groups)for(const [k,l] of items)LABEL[k]=l;
   counts=state[mode].counts;
   GROUPS=groups;ITEM_KEYS=groups.flatMap(g=>g[1].map(i=>i[0]));spyOn=null;
