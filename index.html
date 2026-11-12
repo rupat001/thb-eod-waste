@@ -123,6 +123,9 @@ header.top{border-top:6px solid var(--accent)}
 .row .was.tot{display:inline-flex;align-items:baseline;gap:6px;margin-top:4px;padding:2px 10px;border-radius:999px;background:var(--accent-soft);color:var(--fg);font-size:.85rem;font-weight:600}
 .row .was.tot b{font-size:1.25rem;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums;line-height:1.2}
 .row .was.tot i{font-style:normal;color:var(--muted);font-weight:600}
+.row.neg .step input{border-color:var(--warn);background:var(--warn-soft);color:var(--warn)}
+.row.neg .was.tot i{color:var(--warn);font-weight:800}
+.mlist li.neg b{color:var(--warn)}
 @media (min-width:700px){.row .was.tot{font-size:.95rem}.row .was.tot b{font-size:1.45rem}}
 /* batches list */
 .batches{display:grid;gap:10px}
@@ -300,7 +303,7 @@ const $ = id => document.getElementById(id);
 const MODES = {
   produced:{title:"Production Sheet", btn:"Add to production", word:"Production",
     bar:"ADDING PRODUCTION", sub:"Enter only what you just made",
-    hint:"Enter only what you just made. It's added to the day's total, so add each batch as you make it. Added something by mistake? Remove that batch at the bottom."},
+    hint:"Enter only what you just made. It's added to the day's total, so add each batch as you make it. Entered too many earlier? Tap − below 0 (e.g. −2) to take them off, or remove the whole batch at the bottom."},
   waste:{title:"EOD Waste Sheet", btn:"Save waste", word:"Waste",
     bar:"ENTERING WASTE", sub:"End-of-day count of what's thrown out",
     hint:"Count what's left to throw out at end of day. Sold more after counting? Pick the same date, fix the number and save again."}
@@ -347,7 +350,7 @@ function makeRow(rows, title, key, label, unit, isExtra){
   minus.onclick=()=>setCount(key,counts[key]-1);
   plus.onclick=()=>setCount(key,counts[key]+1);
   inp.onfocus=()=>inp.select();
-  inp.oninput=()=>{const v=parseInt(inp.value.replace(/\D/g,""),10);setCount(key,isNaN(v)?0:v,true)};
+  inp.oninput=()=>{const raw=inp.value.trim();if(raw==="-")return;const v=parseInt(raw.replace(/[^\d-]/g,"").replace(/(?!^)-/g,""),10);setCount(key,isNaN(v)?0:v,true);if(String(counts[key])!==raw&&raw!=="")inp.value=String(counts[key])};
   st.append(minus,inp,plus);r.append(n,st);rows.appendChild(r);
   return inp;
 }
@@ -426,20 +429,22 @@ async function refreshItems(){
 
 // ---------- counts & summary ----------
 function setCount(key,v,fromInput){
-  v=Math.max(0,Math.min(999,v|0));counts[key]=v;
+  // Production can go below 0 to correct an earlier batch, but never below the day's total.
+  const min=(mode==="produced"&&!extras[key])?-(state.produced.totals[key]||0):0;
+  v=Math.max(min,Math.min(999,v|0));counts[key]=v;
   const inp=$("c_"+key);if(!fromInput)inp.value=String(v);
   paintRow(key);summary();
 }
 function paintRow(key){
   const r=rowEl[key];if(!r)return;
   const v=counts[key]||0, sv=state[mode].savedCounts[key]||0, info=state[mode].info;
-  r.classList.toggle("has",v>0);
+  r.classList.toggle("has",v!==0);r.classList.toggle("neg",v<0);
   const was=r.querySelector(".was");
   if(mode==="produced"){ // Production adds up: show the day's total and what this entry makes it.
     const T=state.produced.totals[key]||0;r.classList.remove("changed");was.className="was tot";
-    was.hidden=!(T>0||v>0);was.textContent="";
+    was.hidden=!(T>0||v!==0);was.textContent="";
     const lab=document.createElement("span");lab.textContent="Made today";const num=document.createElement("b");num.textContent=String(T);was.append(lab,num);
-    if(v>0){const ar=document.createElement("i");ar.textContent="→ "+(T+v);was.appendChild(ar)}
+    if(v!==0){const ar=document.createElement("i");ar.textContent=(v<0?"fix "+v+" ":"")+"→ "+(T+v);was.appendChild(ar)}
     return;
   }
   was.className="was";
@@ -457,7 +462,7 @@ function isDirty(m){
 }
 function summary(){
   let c=0,t=0;const g={};
-  for(const k in counts){if(counts[k]>0){c++;t+=counts[k];const G=groupOf[k];g[G]=g[G]||{c:0,t:0};g[G].c++;g[G].t+=counts[k]}}
+  for(const k in counts){if(counts[k]!==0&&counts[k]!=null){c++;t+=counts[k];const G=groupOf[k];g[G]=g[G]||{c:0,t:0};g[G].c++;g[G].t+=counts[k]}}
   $("cnt").textContent=c;$("tot").textContent=t;$("pcsWord").textContent=mode==="produced"?"pieces to add":"pieces";
   for(const G in groupUI){const s=g[G];const u=groupUI[G];
     let none="None yet";
@@ -667,14 +672,16 @@ function askConfirm(m,c,x,d){
     $("cfHead").textContent=P?"PRODUCTION":"WASTE";
     $("cfTitle").textContent=(P?"Add to production for ":"Save waste for ")+fmtDate(d)+"?";
     const list=$("cfList");list.textContent="";let n=0,t=0;
-    const li=(label,v)=>{const e=document.createElement("li");const a=document.createElement("span");a.textContent=label;const b=document.createElement("b");b.textContent=(P?"+":"")+v;e.append(a,b);list.appendChild(e);n++;t+=v};
+    const li=(label,v)=>{const e=document.createElement("li");if(v<0)e.className="neg";const a=document.createElement("span");a.textContent=label+(v<0?" (correction)":"");const b=document.createElement("b");b.textContent=(P&&v>0?"+":"")+v;e.append(a,b);list.appendChild(e);n++;t+=v};
     for(const k of ITEM_KEYS)if(c[k])li(LABEL[k]||k,c[k]);
     for(const k in c)if(!ITEM_KEYS.includes(k))li(LABEL[k]||k,c[k]);
     for(const e of x)li(e.name+" (just today)",e.count);
     if(!n){const e=document.createElement("li");e.textContent="No waste — every item is 0";list.appendChild(e)}
     $("cfSum").textContent=n?n+(n===1?" item · ":" items · ")+t+" pieces":"";
     $("cfWrong").textContent=P?"Is this actually waste? Tap Go back and switch to the red Waste tab.":"Is this actually production? Tap Go back and switch to the green Produced tab.";
-    $("cfYes").textContent=P?"Yes, add production":"Yes, save waste";
+    const fix=P&&Object.values(c).some(v=>v<0);
+    if(fix)$("cfTitle").textContent="Save production correction for "+fmtDate(d)+"?";
+    $("cfYes").textContent=P?(fix?"Yes, save correction":"Yes, add production"):"Yes, save waste";
     $("cfWho").value=$("who").value.trim();$("cfMsg").textContent="";
     $("confirm").hidden=false;setTimeout(()=>($("cfWho").value?$("cfYes"):$("cfWho")).focus(),50);
     const done=v=>{$("confirm").hidden=true;document.removeEventListener("keydown",esc,true);res(v)};
@@ -696,8 +703,8 @@ async function save(){
   if(loadFailed||loadedDate===null){toast("Saved numbers haven't loaded yet. Tap Try again first.");return false}
   const d=loadedDate||$("date").value||todayStr();
   const c={},x=[];
-  for(const k in counts){if(counts[k]>0){if(extras[k])x.push({group:extras[k].group,name:extras[k].name,count:counts[k]});else c[k]=counts[k]}}
   const m=mode;
+  for(const k in counts){const v=counts[k];if(extras[k]){if(v>0)x.push({group:extras[k].group,name:extras[k].name,count:v})}else if(v>0||(m==="produced"&&v<0))c[k]=v}
   if(m==="produced"&&!Object.keys(c).length&&!x.length){toast("Enter what you just made first");return false}
   saving=true;
   const name=await askConfirm(m,c,x,d);
@@ -710,7 +717,10 @@ async function save(){
       if(!pendingBatch||pendingBatch.sig!==sig)pendingBatch={sig,id:newBatchId()};
       const data=await api("addBatch",{date:d,preparedBy:name,batchId:pendingBatch.id,counts:c,extras:x,notes,itemKeys:ITEM_KEYS});
       if(data&&!data.ok){
-        const why={bad_date:"That date can't be used (entries are "+fmtDate(CFG.START_DATE)+" to today).",no_name:"Add your name first.",empty:"Enter what you just made first."}[data.error];
+        const why={bad_date:"That date can't be used (entries are "+fmtDate(CFG.START_DATE)+" to today).",no_name:"Add your name first.",empty:"Enter what you just made first.",
+          below_zero:"That would take "+(data.items||[]).map(k=>LABEL[k]||k).join(", ")+" below 0. Someone may have changed it — the totals are refreshed, check and try again."}[data.error];
+        if(data.error==="below_zero")api("load",{date:d}).then(r=>{if(!r||!r.ok)return;applyProduced(r.produced,r.batches,true);
+          const P=state.produced;for(const k in P.counts){const lo=-(P.totals[k]||0);if(P.counts[k]<lo)P.counts[k]=lo}render()}).catch(()=>{});
         if(why)toast(why,6000);else if(!/unknown_action|old_client/.test(data.error))toast("Couldn't add it. Try again.");
         return false;
       }
