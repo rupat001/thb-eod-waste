@@ -107,6 +107,46 @@ section.group h2{font-family:var(--display);font-weight:800;font-size:1.4rem;lin
 .row.changed .step input{border-color:var(--warn);background:var(--warn-soft)}
 .loading #groups{opacity:.45;pointer-events:none}
 
+/* ---- Produced = green page, Waste = red page, so the two are hard to mix up ---- */
+:root{--pro:#1f7a4a;--was:#b3261e}
+@media (prefers-color-scheme: dark){:root{--pro:#6fd39c;--was:#ff8a80}}
+body.m-produced{--accent:#1f7a4a;--accent-fg:#fff;--accent-soft:#dcf1e4;--bg:#edf5ef}
+body.m-waste{--accent:#b3261e;--accent-fg:#fff;--accent-soft:#fbe1df;--bg:#faeeed}
+@media (prefers-color-scheme: dark){
+  body.m-produced{--accent:#6fd39c;--accent-fg:#0d2116;--accent-soft:#173826;--bg:#0f1a13}
+  body.m-waste{--accent:#ff8a80;--accent-fg:#2a0d0b;--accent-soft:#3d1d1a;--bg:#1d1110}}
+header.top{border-top:6px solid var(--accent)}
+.modebar{grid-column:1 / -1;border-radius:10px;padding:8px 12px;background:var(--accent);color:var(--accent-fg);font-family:var(--display);font-weight:800;font-size:1.05rem;letter-spacing:.05em;text-align:center;line-height:1.2}
+.modebar small{display:block;font-family:var(--body);font-weight:500;font-size:.78rem;letter-spacing:0;opacity:.9}
+.tabs button#tab_produced[aria-selected="false"]{color:var(--pro)}
+.tabs button#tab_waste[aria-selected="false"]{color:var(--was)}
+.row .was.tot{color:var(--muted);font-weight:500}
+.row.has .was.tot{color:var(--accent);font-weight:700}
+/* batches list */
+.batches{display:grid;gap:10px}
+.batches h2{font-family:var(--display);font-weight:800;font-size:1.4rem;margin:0}
+.brow{display:flex;align-items:center;gap:10px;padding:10px 12px 10px 14px;border-top:1px solid var(--line)}
+.brow:first-child{border-top:0}
+.brow .bi{flex:1;min-width:0}
+.brow .bi b{display:block;font-weight:600}
+.brow .bi small{display:block;color:var(--muted);font-size:.8rem}
+.brow.off .bi{opacity:.55}.brow.off .bi b{text-decoration:line-through}
+.brow button{flex:none;border:1px solid var(--line);background:var(--bg);border-radius:8px;min-height:40px;padding:8px 12px;font-weight:600;cursor:pointer;color:var(--fg)}
+.batches .rows{display:block}
+/* confirm before saving */
+.modal{position:fixed;inset:0;z-index:15;background:rgba(0,0,0,.45);display:grid;place-items:center;padding:max(16px,env(safe-area-inset-top,0px)) 16px max(16px,env(safe-area-inset-bottom,0px))}
+.mcard{width:100%;max-width:440px;max-height:100%;overflow:auto;background:var(--surface);border-radius:16px;border-top:10px solid var(--accent);padding:20px;display:grid;gap:12px}
+.mhead{justify-self:start;background:var(--accent);color:var(--accent-fg);border-radius:6px;padding:3px 10px;font-weight:800;letter-spacing:.08em;font-size:.85rem}
+.mcard h2{font-family:var(--display);font-weight:800;font-size:1.35rem;margin:0;line-height:1.2}
+.mlist{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:10px;max-height:34vh;overflow:auto}
+.mlist li{display:flex;justify-content:space-between;gap:12px;padding:8px 12px;border-top:1px solid var(--line)}
+.mlist li:first-child{border-top:0}
+.mlist li b{font-variant-numeric:tabular-nums;color:var(--accent)}
+.macts{display:grid;grid-template-columns:1fr 2fr;gap:10px}
+.macts .btn{min-height:52px;font-size:1.05rem}
+.btn.ghostb{background:transparent;border:1px solid var(--line);color:var(--fg)}
+.cfmsg{margin:0;color:var(--was);font-weight:600;font-size:.85rem;min-height:1.1em}
+
 /* ---- Store PIN screen ---- */
 .pingate{position:fixed;inset:0;z-index:20;background:var(--bg);display:grid;place-items:center;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
 .pincard{width:100%;max-width:340px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px;display:grid;gap:12px;text-align:center}
@@ -175,6 +215,7 @@ input[type=date]::-webkit-date-and-time-value{text-align:left}
 </header>
 <div class="stick" id="stick">
   <div class="wrap">
+    <div class="modebar" id="modebar" aria-live="polite"></div>
     <div class="tabs" role="tablist" aria-label="What are you entering">
       <button type="button" role="tab" id="tab_produced" aria-selected="true">Produced</button>
       <button type="button" role="tab" id="tab_waste" aria-selected="false">Waste</button>
@@ -194,7 +235,11 @@ input[type=date]::-webkit-date-and-time-value{text-align:left}
     <div id="entered" class="banner info" hidden>These waste numbers are already in ClearView. If you change them, the manager will be told to fix ClearView too.</div>
     <p class="note" id="hint"></p>
     <div id="groups"></div>
-    <label class="f" for="notes">Notes (optional)
+    <section class="batches" id="batches" hidden>
+      <h2 id="bTitle">Today's batches</h2>
+      <div class="rows" id="bList"></div>
+    </section>
+    <label class="f" for="notes"><span id="notesLabel">Notes (optional)</span>
       <textarea id="notes" placeholder="Anything the manager should know"></textarea>
     </label>
   </div>
@@ -202,11 +247,26 @@ input[type=date]::-webkit-date-and-time-value{text-align:left}
 
 <div class="bar" id="bar">
   <div class="wrap">
-    <div class="sum"><span id="unsaved" class="unsaved" hidden>Not saved</span><span><strong id="cnt">0</strong> items · <span id="tot">0</span> pieces</span></div>
+    <div class="sum"><span id="unsaved" class="unsaved" hidden>Not saved</span><span><strong id="cnt">0</strong> items · <span id="tot">0</span> <span id="pcsWord">pieces</span></span></div>
     <button class="btn primary" id="submit" type="button">Save</button>
   </div>
 </div>
 <div class="toast" id="toast" role="status" hidden></div>
+
+<div class="modal" id="confirm" hidden role="dialog" aria-modal="true" aria-labelledby="cfTitle">
+  <div class="mcard">
+    <span class="mhead" id="cfHead"></span>
+    <h2 id="cfTitle"></h2>
+    <p class="note" id="cfSum"></p>
+    <ul class="mlist" id="cfList"></ul>
+    <label class="f" for="cfWho">Your name
+      <input type="text" id="cfWho" autocomplete="off" placeholder="Who is saving this?">
+    </label>
+    <p class="cfmsg" id="cfMsg"></p>
+    <p class="note" id="cfWrong"></p>
+    <div class="macts"><button type="button" class="btn ghostb" id="cfNo">Go back</button><button type="button" class="btn primary" id="cfYes"></button></div>
+  </div>
+</div>
 
 <div class="pingate" id="pinGate" hidden role="dialog" aria-modal="true" aria-labelledby="pinTitle">
   <form class="pincard" id="pinForm" autocomplete="off">
@@ -236,12 +296,14 @@ let ITEM_KEYS=GROUPS.flatMap(g=>g[1].map(i=>i[0]));
 const CFG = window.EOD_CONFIG;
 const $ = id => document.getElementById(id);
 const MODES = {
-  produced:{title:"Production Sheet", btn:"Save production", word:"Production",
-    hint:"Enter how many of each item were made today. Making more later? Come back, pick the same date and raise the number — what's already saved shows up here."},
+  produced:{title:"Production Sheet", btn:"Add to production", word:"Production",
+    bar:"ADDING PRODUCTION", sub:"Enter only what you just made",
+    hint:"Enter only what you just made. It's added to the day's total, so add each batch as you make it. Added something by mistake? Remove that batch at the bottom."},
   waste:{title:"EOD Waste Sheet", btn:"Save waste", word:"Waste",
+    bar:"ENTERING WASTE", sub:"End-of-day count of what's thrown out",
     hint:"Count what's left to throw out at end of day. Sold more after counting? Pick the same date, fix the number and save again."}
 };
-const blank = () => ({counts:{}, notes:"", extras:[], savedCounts:{}, savedNotes:"", savedExtras:[], info:null});
+const blank = () => ({counts:{}, notes:"", extras:[], savedCounts:{}, savedNotes:"", savedExtras:[], info:null, totals:{}, batches:[]});
 const state = {produced:blank(), waste:blank()};
 let mode = "produced";
 let counts = state.produced.counts;
@@ -259,6 +321,7 @@ const extras = {};          // key -> {group, name}   (items added for one day o
 let extraSeq = 0;
 const groupOf = {};         // key -> category
 const groupUI = {};         // category -> {sum, chip, rows}
+const LABEL = {};           // key -> what staff see
 const rowEl = {};           // key -> row element
 
 function makeRow(rows, title, key, label, unit, isExtra){
@@ -289,7 +352,7 @@ function makeRow(rows, title, key, label, unit, isExtra){
 function addExtra(group,name){
   const found=Object.keys(extras).find(k=>extras[k].group===group&&extras[k].name.toLowerCase()===name.toLowerCase());
   if(found)return found;
-  const key="x"+(++extraSeq);extras[key]={group,name};
+  const key="x"+(++extraSeq);extras[key]={group,name};LABEL[key]=name;
   makeRow(groupUI[group].rows,group,key,name,"",true);
   return key;
 }
@@ -304,6 +367,7 @@ function buildForm(groups){
   for(const k of Object.keys(rowEl))delete rowEl[k];
   for(const k of Object.keys(extras))delete extras[k];
   for(const m in state){state[m].counts={};state[m].savedCounts={}}
+  for(const [,items] of groups)for(const [k,l] of items)LABEL[k]=l;
   counts=state[mode].counts;
   GROUPS=groups;ITEM_KEYS=groups.flatMap(g=>g[1].map(i=>i[0]));
 for (const [title,items] of GROUPS){
@@ -368,9 +432,15 @@ function paintRow(key){
   const r=rowEl[key];if(!r)return;
   const v=counts[key]||0, sv=state[mode].savedCounts[key]||0, info=state[mode].info;
   r.classList.toggle("has",v>0);
+  const was=r.querySelector(".was");
+  if(mode==="produced"){ // Production adds up: show the day's total and what this entry makes it.
+    const T=state.produced.totals[key]||0;r.classList.remove("changed");was.className="was tot";
+    was.hidden=!(T>0||v>0);was.textContent=v>0?"Total: "+T+" → "+(T+v):"Total so far: "+T;return;
+  }
+  was.className="was";
   const changed=!!info&&v!==sv;
   r.classList.toggle("changed",changed);
-  const was=r.querySelector(".was");was.hidden=!changed;if(changed)was.textContent="Saved: "+sv+" → now "+v;
+  was.hidden=!changed;if(changed)was.textContent="Saved: "+sv+" → now "+v;
 }
 function isDirty(m){
   const s=state[m];
@@ -383,9 +453,11 @@ function isDirty(m){
 function summary(){
   let c=0,t=0;const g={};
   for(const k in counts){if(counts[k]>0){c++;t+=counts[k];const G=groupOf[k];g[G]=g[G]||{c:0,t:0};g[G].c++;g[G].t+=counts[k]}}
-  $("cnt").textContent=c;$("tot").textContent=t;
+  $("cnt").textContent=c;$("tot").textContent=t;$("pcsWord").textContent=mode==="produced"?"pieces to add":"pieces";
   for(const G in groupUI){const s=g[G];const u=groupUI[G];
-    u.sum.textContent=s?s.c+(s.c===1?" item · ":" items · ")+s.t:"None yet";u.sum.classList.toggle("on",!!s);
+    let none="None yet";
+    if(mode==="produced"){let T=0;for(const k in groupOf)if(groupOf[k]===G)T+=state.produced.totals[k]||0;none=T?"Total so far: "+T:"None yet"}
+    u.sum.textContent=s?(mode==="produced"?"Adding ":"")+s.c+(s.c===1?" item · ":" items · ")+s.t:none;u.sum.classList.toggle("on",!!s);
     u.chip.textContent=s?String(s.t):""}
   paintStatus();
 }
@@ -397,7 +469,13 @@ function paintStatus(){
   if(loadFailed){tx.textContent="Couldn't load — saving is off";$("unsaved").hidden=true;return}
   const dirty=isDirty(mode);
   $("unsaved").hidden=!dirty;
-  if(dirty){el.classList.add("dirty");tx.textContent=s.info?"Unsaved changes — tap "+M.btn:"Not saved yet";}
+  if(mode==="produced"){
+    const T=Object.values(s.totals).reduce((a,b)=>a+(b||0),0), n=s.batches.filter(b=>!b.removed).length;
+    if(dirty){el.classList.add("dirty");tx.textContent="Not added yet — tap "+M.btn}
+    else if(T){el.classList.add("saved");tx.textContent="Total for "+fmtDate(loadedDate)+": "+T+" pieces"+(n?" in "+n+(n===1?" batch":" batches"):"")+(s.info?" · last change "+fmtTime(s.info.savedAt)+(s.info.preparedBy?" by "+s.info.preparedBy:""):"")}
+    else tx.textContent="Nothing made yet for "+fmtDate(loadedDate);
+  }
+  else if(dirty){el.classList.add("dirty");tx.textContent=s.info?"Unsaved changes — tap "+M.btn:"Not saved yet";}
   else if(s.info){el.classList.add("saved");tx.textContent=M.word+" saved "+fmtTime(s.info.savedAt)+(s.info.preparedBy?" by "+s.info.preparedBy:"")}
   else tx.textContent="No "+M.word.toLowerCase()+" saved for "+fmtDate(loadedDate)+" yet";
   $("submit").textContent=M.btn;
@@ -416,6 +494,11 @@ function render(){
   $("notes").value=state[m].notes;
   const M=MODES[m];
   $("title").textContent=M.title;document.title=M.title;$("hint").textContent=M.hint;
+  document.body.classList.toggle("m-produced",m==="produced");document.body.classList.toggle("m-waste",m==="waste");
+  $("modebar").textContent=M.bar;const sb=document.createElement("small");sb.textContent=M.sub;$("modebar").appendChild(sb);
+  const tc=document.querySelector('meta[name="theme-color"]');if(tc)tc.content=m==="produced"?"#1f7a4a":"#b3261e";
+  $("notesLabel").textContent=m==="produced"?"Note for this batch (optional)":"Notes (optional)";
+  renderBatches();
   $("tab_produced").setAttribute("aria-selected",m==="produced");
   $("tab_waste").setAttribute("aria-selected",m==="waste");
   summary();fitHeader();
@@ -427,7 +510,8 @@ $("tab_waste").onclick=()=>setMode("waste");
 function applyDay(data){
   state[mode].notes=$("notes").value;
   clearExtras();
-  for(const m of ["produced","waste"]){
+  applyProduced(data&&data.produced,data&&data.batches,false);
+  for(const m of ["waste"]){
     const rec=data&&data[m];const s=state[m];
     for(const k in s.counts)s.counts[k]=0;
     s.savedCounts={};s.info=rec||null;s.savedNotes=rec?rec.notes||"":"";s.notes=s.savedNotes;
@@ -440,6 +524,51 @@ function applyDay(data){
   render();
 }
 // Refresh just one tab from the Sheet after saving it, leaving the other tab's unsaved numbers alone.
+// Production: typed numbers are what's being ADDED; totals/batches come from the Sheet.
+function applyProduced(rec,batches,keepTyped){
+  const s=state.produced;
+  if(!keepTyped){for(const k in s.counts)s.counts[k]=0;s.notes="";s.savedNotes="";s.savedCounts={}}
+  s.info=rec||null;s.totals={};s.batches=Array.isArray(batches)?batches:[];
+  if(rec){
+    for(const k in rec.counts){if(k in s.counts)s.totals[k]=rec.counts[k]}
+    for(const x of rec.extras||[]){if(!groupUI[x.group])continue;const key=addExtra(x.group,x.name);s.totals[key]=x.count}
+  }
+  for(const mm in state)for(const k in groupOf){if(!(k in state[mm].counts))state[mm].counts[k]=0}
+}
+function batchText(b){
+  const parts=[];
+  for(const k in b.counts||{})parts.push((LABEL[k]||k.replace(/_/g," "))+" "+b.counts[k]);
+  for(const x of b.extras||[])parts.push(x.name+" "+x.count);
+  return parts.join(", ");
+}
+function renderBatches(){
+  const s=state.produced, box=$("bList");
+  $("batches").hidden=!(mode==="produced"&&s.batches.length);
+  if($("batches").hidden)return;
+  $("bTitle").textContent=(loadedDate===todayStr()?"Today's":fmtDate(loadedDate))+" batches";
+  box.textContent="";
+  for(const b of s.batches.slice().reverse()){
+    const r=document.createElement("div");r.className="brow"+(b.removed?" off":"");
+    const i=document.createElement("div");i.className="bi";
+    const t=document.createElement("b");t.textContent=fmtTime(b.savedAt)+" · "+(b.name||"?");
+    const d=document.createElement("small");d.textContent=batchText(b);
+    i.append(t,d);
+    if(b.removed){const x=document.createElement("small");x.textContent=b.removed;i.appendChild(x)}
+    r.appendChild(i);
+    if(!b.removed){const bt=document.createElement("button");bt.type="button";bt.textContent="Remove";bt.setAttribute("aria-label","Remove "+(b.name||"")+"'s "+fmtTime(b.savedAt)+" batch");bt.onclick=()=>removeBatch(b);r.appendChild(bt)}
+    box.appendChild(r);
+  }
+}
+async function removeBatch(b){
+  const name=$("who").value.trim();
+  if(!name){toast("Add your name first");$("who").focus();return}
+  if(!confirm("Remove "+(b.name||"this")+"'s "+fmtTime(b.savedAt)+" batch?\n\n"+batchText(b)+"\n\nThese numbers come off the total."))return;
+  try{
+    const r=await api("removeBatch",{date:loadedDate,batchId:b.id,preparedBy:name});
+    if(!r.ok){toast(r.error==="not_found"?"That batch wasn't found. Pull down to refresh.":"Couldn't remove it. Try again.");return}
+    applyProduced(r.record,r.batches,true);render();toast("Batch removed");
+  }catch(e){if(!e.pin)toast("Couldn't reach the Sheet. Try again.")}
+}
 function applyOne(m,rec){
   state[mode].notes=$("notes").value;
   const s=state[m];
@@ -515,22 +644,79 @@ $("guardSave").onclick=async()=>{$("guard").hidden=true;
   for(const m of ["produced","waste"]){if(isDirty(m)){if(mode!==m)setMode(m);const ok=await save();if(!ok)return}}
   if(pendingDate){$("date").value=pendingDate;loadDay(pendingDate);pendingDate=null}};
 
+// ---------- name (shared iPad: forget it after 2 hours of no use) ----------
+const NAME_KEY="eodw_name", IDLE_MS=2*60*60*1000;
+let lastActive=Date.now(), lastStored=0;
+function readName(){try{const o=JSON.parse(localStorage.getItem(NAME_KEY)||"null");if(o&&o.n&&Date.now()-o.t<IDLE_MS){lastActive=o.t;return o.n}}catch(e){}try{localStorage.removeItem(NAME_KEY)}catch(e){}return ""}
+function storeName(n){lastStored=Date.now();try{n?localStorage.setItem(NAME_KEY,JSON.stringify({n:n,t:lastStored})):localStorage.removeItem(NAME_KEY)}catch(e){}}
+function forgetIfIdle(){if(Date.now()-lastActive>=IDLE_MS&&$("who").value){$("who").value="";storeName("")}}
+function touch(){forgetIfIdle();lastActive=Date.now();const n=$("who").value.trim();if(n&&lastActive-lastStored>60000)storeName(n)}
+["pointerdown","keydown"].forEach(ev=>addEventListener(ev,touch,{capture:true,passive:true}));
+$("who").addEventListener("change",()=>storeName($("who").value.trim()));
+setInterval(forgetIfIdle,60000);
+
+// ---------- confirm before saving ----------
+function askConfirm(m,c,x,d){
+  return new Promise(res=>{
+    const P=m==="produced";
+    $("cfHead").textContent=P?"PRODUCTION":"WASTE";
+    $("cfTitle").textContent=(P?"Add to production for ":"Save waste for ")+fmtDate(d)+"?";
+    const list=$("cfList");list.textContent="";let n=0,t=0;
+    const li=(label,v)=>{const e=document.createElement("li");const a=document.createElement("span");a.textContent=label;const b=document.createElement("b");b.textContent=(P?"+":"")+v;e.append(a,b);list.appendChild(e);n++;t+=v};
+    for(const k of ITEM_KEYS)if(c[k])li(LABEL[k]||k,c[k]);
+    for(const k in c)if(!ITEM_KEYS.includes(k))li(LABEL[k]||k,c[k]);
+    for(const e of x)li(e.name+" (just today)",e.count);
+    if(!n){const e=document.createElement("li");e.textContent="No waste — every item is 0";list.appendChild(e)}
+    $("cfSum").textContent=n?n+(n===1?" item · ":" items · ")+t+" pieces":"";
+    $("cfWrong").textContent=P?"Is this actually waste? Tap Go back and switch to the red Waste tab.":"Is this actually production? Tap Go back and switch to the green Produced tab.";
+    $("cfYes").textContent=P?"Yes, add production":"Yes, save waste";
+    $("cfWho").value=$("who").value.trim();$("cfMsg").textContent="";
+    $("confirm").hidden=false;setTimeout(()=>($("cfWho").value?$("cfYes"):$("cfWho")).focus(),50);
+    const done=v=>{$("confirm").hidden=true;document.removeEventListener("keydown",esc,true);res(v)};
+    const esc=e=>{if(e.key==="Escape"){e.preventDefault();done(null)}};
+    document.addEventListener("keydown",esc,true);
+    $("cfNo").onclick=()=>done(null);
+    $("cfYes").onclick=()=>{const nm=$("cfWho").value.trim().replace(/\s+/g," ");if(!nm){$("cfMsg").textContent="Type your name so the manager knows who saved this.";$("cfWho").focus();return}
+      $("who").value=nm;storeName(nm);done(nm)};
+    $("cfWho").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();$("cfYes").click()}};
+  });
+}
+function newBatchId(){const a=new Uint8Array(9);crypto.getRandomValues(a);return Array.from(a,b=>b.toString(16).padStart(2,"0")).join("")}
+let pendingBatch=null; // same entry sent again after a dropped connection keeps its id, so it's added once
+
 // ---------- saving ----------
 async function save(){
   if(saving)return false;
   if(!ready){toast("Form isn't connected yet. Ask the manager.");return false}
   if(loadFailed||loadedDate===null){toast("Saved numbers haven't loaded yet. Tap Try again first.");return false}
-  const name=$("who").value.trim();
-  if(!name){toast("Add your name first");$("who").focus();return false}
   const d=loadedDate||$("date").value||todayStr();
   const c={},x=[];
   for(const k in counts){if(counts[k]>0){if(extras[k])x.push({group:extras[k].group,name:extras[k].name,count:counts[k]});else c[k]=counts[k]}}
-  saving=true;const btn=$("submit");btn.disabled=true;btn.textContent="Saving…";
   const m=mode;
+  if(m==="produced"&&!Object.keys(c).length&&!x.length){toast("Enter what you just made first");return false}
+  saving=true;
+  const name=await askConfirm(m,c,x,d);
+  if(!name){saving=false;return false}
+  const btn=$("submit");btn.disabled=true;btn.textContent="Saving…";
   try{
+    if(m==="produced"){
+      const notes=$("notes").value.trim();
+      const sig=JSON.stringify([d,c,x,notes]);
+      if(!pendingBatch||pendingBatch.sig!==sig)pendingBatch={sig,id:newBatchId()};
+      const data=await api("addBatch",{date:d,preparedBy:name,batchId:pendingBatch.id,counts:c,extras:x,notes,itemKeys:ITEM_KEYS});
+      if(data&&!data.ok){
+        const why={bad_date:"That date can't be used (entries are "+fmtDate(CFG.START_DATE)+" to today).",no_name:"Add your name first.",empty:"Enter what you just made first."}[data.error];
+        if(why)toast(why,6000);else if(!/unknown_action|old_client/.test(data.error))toast("Couldn't add it. Try again.");
+        return false;
+      }
+      if(!data||!(data.batches||[]).some(b=>b.id===pendingBatch.id))throw new Error("not confirmed");
+      pendingBatch=null;
+      applyProduced(data.record,data.batches,false);render();
+      toast("Added to production for "+fmtDate(d));
+      return true;
+    }
     const base=state[m].info?(state[m].info.version||state[m].info.savedAt):"";
     const data=await api("save",{type:m,date:d,preparedBy:name,notes:$("notes").value.trim(),counts:c,extras:x,itemKeys:ITEM_KEYS,base});
-    try{localStorage.setItem("eodw_name",name)}catch(e){}
     if(data&&!data.ok&&data.error==="changed"&&data.record){
       // Someone else saved this day after this device loaded it. Keep what this person typed,
       // compare it against the newer numbers, and let them check before saving again.
@@ -558,13 +744,14 @@ function fitHeader(){document.documentElement.style.setProperty("--headH",($("st
 addEventListener("resize",fitHeader);
 addEventListener("beforeunload",e=>{if(["produced","waste"].some(isDirty)){e.preventDefault();e.returnValue=""}});
 if(!ready)$("setup").hidden=false;
-try{const w=localStorage.getItem("eodw_name");if(w)$("who").value=w}catch(e){}
+$("who").value=readName();
 $("date").min=CFG.START_DATE;$("date").max=todayStr();
 // Keep "today" current on devices left open overnight (store iPad).
 function refreshMax(){$("date").max=todayStr()}
 $("date").addEventListener("focus",refreshMax);$("date").addEventListener("click",refreshMax);
 document.addEventListener("visibilitychange",()=>{
   if(document.hidden)return;
+  forgetIfIdle();
   refreshMax();
   if(saving||loadedDate===null||!pin.get())return;
   const t=todayStr(), dirty=["produced","waste"].some(isDirty);

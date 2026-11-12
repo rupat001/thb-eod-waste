@@ -35,6 +35,17 @@ once to copy the built-in list into the Sheet's **Items** tab.
 Staff phones pick up the new list the next time they open the form (not while they
 have unsaved numbers). Don't edit the Items tab by hand; use the Manager page.
 
+## How entries work
+
+- **Produced** (green page): staff enter only what they just made. Each entry is a *batch*
+  that's added to the day's total; every batch is kept in the Sheet's **Batches** tab.
+  A wrong batch is removed from the list at the bottom of the form (its numbers come
+  off the total; it stays listed as removed).
+- **Waste** (red page): one end-of-day count per day, corrected by saving again.
+- Every save asks "Save waste for …?" / "Add to production for …?" with the numbers and
+  the person's name.
+- The name on a shared iPad is forgotten after 2 hours of no use.
+
 ## Rules that keep things from breaking
 
 1. Numbers are matched to Sheet columns by **header name**, never by position.
