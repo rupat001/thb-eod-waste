@@ -34,7 +34,11 @@ header.top{background:var(--surface);padding-top:env(safe-area-inset-top,0px)}
 .stick .wrap{padding-block:8px 10px;display:grid;gap:8px}
 header.top .wrap{padding-block:14px 6px;display:grid;gap:12px}
 h1{font-family:var(--display);font-weight:800;font-size:1.45rem;margin:0;letter-spacing:-.01em}
-.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.fields label.f{min-width:0}
+.fields input{max-width:100%;min-width:0}
+/* Phones: iPhone date boxes won't shrink, so date and name go on their own lines */
+@media (max-width:559px){.fields{grid-template-columns:minmax(0,1fr)}}
 label.f{display:grid;gap:4px;font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
 input,textarea,button{font:inherit;color:inherit}
 input[type=date],input[type=text],textarea{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 10px;width:100%;min-width:0;font-size:1rem;color:var(--fg)}
