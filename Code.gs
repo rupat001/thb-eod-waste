@@ -1,5 +1,5 @@
 // ============================================================
-//  EOD Waste / Production — Google Apps Script (API version 2, rev 6)
+//  EOD Waste / Production — Google Apps Script (API version 2, rev 7)
 //
 //  Paste into your Google Sheet: Extensions > Apps Script, replace everything, Save.
 //  PINs live in Project Settings > Script properties (never in this code):
@@ -336,17 +336,20 @@ function setStatus_(data) {
 }
 
 // ============================================================
-//  PRODUCTION BATCHES
-//  Staff add what they just made; it's added to the day's Produced row.
+//  BATCHES (Produced and Waste)
+//  Staff add what they just made / threw out; it is added to the day's row.
 //  Every batch is kept in the Batches tab. A wrong batch is removed (its
 //  numbers are taken back off the total) and stays listed as removed.
 // ============================================================
 const BATCHES_NAME = 'Batches';
-const BATCHES_HEADER = ['Saved at', 'Date', 'Name', 'Batch', 'Counts (JSON)', 'Extras (JSON)', 'Removed'];
+const BATCHES_HEADER = ['Saved at', 'Date', 'Name', 'Batch', 'Counts (JSON)', 'Extras (JSON)', 'Removed', 'Type'];
 const BATCH_RE = /^[A-Za-z0-9_-]{6,40}$/;
 
 function getBatches_() {
   let sh = ss_().getSheetByName(BATCHES_NAME);
+  if (sh && sh.getLastColumn() < BATCHES_HEADER.length) {
+    sh.getRange(1, 1, 1, BATCHES_HEADER.length).setValues([BATCHES_HEADER]).setFontWeight('bold'); // adds the Type column
+  }
   if (!sh) {
     sh = ss_().insertSheet(BATCHES_NAME);
     sh.appendRow(BATCHES_HEADER);
@@ -366,13 +369,14 @@ function batchRows_() {
     try { counts = JSON.parse(r[4] || '{}'); } catch (e) {}
     try { extras = JSON.parse(r[5] || '[]'); } catch (e) {}
     return { row: i + 2, savedAt: r[0] instanceof Date ? r[0].toISOString() : String(r[0] || ''), date: dateKey_(r[1]),
-             name: String(r[2] || ''), id: String(r[3] || ''), counts: counts, extras: extras, removed: String(r[6] || '') };
+             name: String(r[2] || ''), id: String(r[3] || ''), counts: counts, extras: extras, removed: String(r[6] || ''),
+             type: String(r[7] || '') === 'Waste' ? 'waste' : 'produced' };
   });
 }
 
 function batchesFor_(date) {
   return batchRows_().filter(function (b) { return b.date === date; })
-    .map(function (b) { return { id: b.id, savedAt: b.savedAt, name: b.name, counts: b.counts, extras: b.extras, removed: b.removed }; });
+    .map(function (b) { return { id: b.id, type: b.type, savedAt: b.savedAt, name: b.name, counts: b.counts, extras: b.extras, removed: b.removed }; });
 }
 
 function cleanExtras_(list) {
@@ -381,12 +385,12 @@ function cleanExtras_(list) {
   }).filter(function (x) { return x.group && x.name && x.count > 0 && x.count < 1000; });
 }
 
-// Add (sign 1) or take off (sign -1) a batch's numbers on the day's Produced row.
-function applyToProduced_(date, counts, extras, sign, name, note, itemKeys) {
+// Add (sign 1) or take off (sign -1) a batch's numbers on the day's Produced or Waste row.
+function applyToRow_(type, date, counts, extras, sign, name, note, itemKeys) {
   const sh = getSheet_();
   const h = ensureItemColumns_(sh, (itemKeys || []).concat(Object.keys(counts)));
   const width = h.names.length;
-  const rowNum = findRow_(sh, date, 'Produced');
+  const rowNum = findRow_(sh, date, type);
   const now = new Date();
   const stamp = Utilities.formatDate(now, Session.getScriptTimeZone(), 'MMM d h:mm a');
   let row;
@@ -405,7 +409,12 @@ function applyToProduced_(date, counts, extras, sign, name, note, itemKeys) {
     else if (sign > 0) ex.push({ group: x.group, name: x.name, count: x.count });
   });
   row[COL.extras] = ex.filter(function (e) { return e.count > 0; }).map(function (e) { return e.group + ': ' + e.name + ' = ' + e.count; }).join('; ');
-  row[COL.saved] = now; row[COL.type] = 'Produced'; row[COL.date] = date; row[COL.name] = name; row[COL.status] = 'Recorded';
+  let status = 'Recorded';
+  if (type === 'Waste') {
+    const prev = String(row[COL.status] || '');
+    status = (prev === 'Entered' || prev === 'Changed after entry') ? 'Changed after entry' : 'Submitted';
+  }
+  row[COL.saved] = now; row[COL.type] = type; row[COL.date] = date; row[COL.name] = name; row[COL.status] = status;
   if (note) row[COL.notes] = (String(row[COL.notes] || '') ? String(row[COL.notes]) + ' | ' : '') + name + ': ' + note;
   row[COL.notes] = String(row[COL.notes] || '').slice(-1000);
   const pieces = Object.keys(counts).reduce(function (t, k) { return t + counts[k]; }, 0) + extras.reduce(function (t, x) { return t + x.count; }, 0);
@@ -422,12 +431,13 @@ function applyToProduced_(date, counts, extras, sign, name, note, itemKeys) {
   const hr = hist.getLastRow() + 1;
   ensureRows_(hist, hr);
   hist.getRange(hr, 3).setNumberFormat('@');
-  hist.getRange(hr, 1, 1, HISTORY_HEADER.length).setValues([[now, sign > 0 ? 'Produced batch' : 'Produced batch removed', date, name, 'Recorded', note || '', JSON.stringify(extras), JSON.stringify(counts)]]);
+  hist.getRange(hr, 1, 1, HISTORY_HEADER.length).setValues([[now, type + (sign > 0 ? ' batch' : ' batch removed'), date, name, status, note || '', JSON.stringify(extras), JSON.stringify(counts)]]);
   return readRow_(sh, written, h);
 }
 
-// { date, preparedBy, batchId, counts, extras, notes, itemKeys } -> { ok, record, batches }
+// { type: 'produced'|'waste', date, preparedBy, batchId, counts, extras, notes, itemKeys } -> { ok, record, batches }
 function addBatch_(data) {
+  const type = data.type === 'waste' ? 'Waste' : 'Produced';
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
@@ -440,7 +450,7 @@ function addBatch_(data) {
     const sh = getSheet_();
     // Sent twice (slow Wi-Fi, tapped again): add it only once.
     if (batchRows_().some(function (b) { return b.id === id; })) {
-      const r = findRow_(sh, date, 'Produced');
+      const r = findRow_(sh, date, type);
       return { ok: true, duplicate: true, record: r ? readRow_(sh, r, header_(sh)) : null, batches: batchesFor_(date) };
     }
     const counts = {};
@@ -454,18 +464,18 @@ function addBatch_(data) {
     // A correction can't take an item below 0.
     const neg = Object.keys(counts).filter(function (k) { return counts[k] < 0; });
     if (neg.length) {
-      const pr = findRow_(sh, date, 'Produced');
+      const pr = findRow_(sh, date, type);
       const cur = pr ? readRow_(sh, pr, header_(sh)).counts : {};
       const bad = neg.filter(function (k) { return (cur[k] || 0) + counts[k] < 0; });
       if (bad.length) return { ok: false, error: 'below_zero', items: bad, totals: cur };
     }
     const note = String(data.notes || '').trim().slice(0, 300);
-    const record = applyToProduced_(date, counts, extras, 1, name, note, Array.isArray(data.itemKeys) ? data.itemKeys.map(String) : []);
+    const record = applyToRow_(type, date, counts, extras, 1, name, note, Array.isArray(data.itemKeys) ? data.itemKeys.map(String) : []);
     const b = getBatches_();
     const br = b.getLastRow() + 1;
     ensureRows_(b, br);
     b.getRange(br, 2, 1, 3).setNumberFormat('@');
-    b.getRange(br, 1, 1, BATCHES_HEADER.length).setValues([[new Date(), date, name, id, JSON.stringify(counts), JSON.stringify(extras), '']]);
+    b.getRange(br, 1, 1, BATCHES_HEADER.length).setValues([[new Date(), date, name, id, JSON.stringify(counts), JSON.stringify(extras), '', type]]);
     SpreadsheetApp.flush();
     return { ok: true, record: record, batches: batchesFor_(date) };
   } finally {
@@ -484,11 +494,12 @@ function removeBatch_(data) {
     const b = batchRows_().filter(function (x) { return x.id === String(data.batchId || '') && x.date === date; })[0];
     if (!b) return { ok: false, error: 'not_found' };
     const sh = getSheet_();
+    const btype = b.type === 'waste' ? 'Waste' : 'Produced';
     if (b.removed) {
-      const r = findRow_(sh, date, 'Produced');
+      const r = findRow_(sh, date, btype);
       return { ok: true, record: r ? readRow_(sh, r, header_(sh)) : null, batches: batchesFor_(date) };
     }
-    const record = applyToProduced_(date, b.counts, cleanExtras_(b.extras), -1, name, '', []);
+    const record = applyToRow_(btype, date, b.counts, cleanExtras_(b.extras), -1, name, '', []);
     const stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'MMM d h:mm a');
     getBatches_().getRange(b.row, 7).setValue('Removed ' + stamp + ' by ' + name);
     SpreadsheetApp.flush();
