@@ -130,13 +130,12 @@ header.top{border-top:6px solid var(--accent)}
 .row .last small{font-size:.7rem;color:var(--muted);white-space:nowrap}
 @media (max-width:380px){.row .last{min-width:54px;padding:3px 5px}.row .last b{font-size:1.05rem}}
 @media (min-width:700px){
-  .rows{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important}
   .row .last{min-width:62px;padding:4px 6px}.row .last b{font-size:1.3rem}
   .row:has(.last:not([hidden])) .step button{width:44px}.row:has(.last:not([hidden])) .step input{width:54px}
   .row:has(.last:not([hidden])){gap:8px}}
 .row.neg .step input{border-color:var(--warn);background:var(--warn-soft);color:var(--warn)}
 .mlist li.neg b{color:var(--warn)}
-@media (min-width:700px){/* confirm before saving */
+/* confirm before saving */
 .modal{position:fixed;inset:0;z-index:15;background:rgba(0,0,0,.45);display:grid;place-items:center;padding:max(16px,env(safe-area-inset-top,0px)) 16px max(16px,env(safe-area-inset-bottom,0px))}
 .mcard{width:100%;max-width:440px;max-height:100%;overflow:auto;background:var(--surface);border-radius:16px;border-top:10px solid var(--accent);padding:20px;display:grid;gap:12px}
 .mhead{justify-self:start;background:var(--accent);color:var(--accent-fg);border-radius:6px;padding:3px 10px;font-weight:800;letter-spacing:.08em;font-size:.85rem}
@@ -169,15 +168,20 @@ input[type=date]::-webkit-date-and-time-value{text-align:left}
   h1{font-size:1.8rem}
   header.top .wrap{grid-template-columns:auto minmax(0,1fr);align-items:end;column-gap:28px;row-gap:10px;padding-block:18px 8px}
   .fields{max-width:560px;justify-self:end;width:100%}
-  .stick .wrap{grid-template-columns:minmax(240px,320px) minmax(0,1fr);align-items:center;column-gap:20px;padding-block:10px 12px}
+  .stick .wrap{grid-template-columns:minmax(200px,280px) minmax(0,1fr);align-items:center;column-gap:20px;padding-block:10px 12px}
   .tabs button{padding:12px 10px;font-size:1rem}
   .status{grid-column:1 / -1}
-  .jump button{padding:8px 16px;font-size:.9rem}
+  .jump button{padding:8px 13px;font-size:.88rem}
+  /* iPad: show every category (wrap to a second line) instead of cutting chips off at the edge */
+  .jump{flex-wrap:wrap;overflow:visible;row-gap:6px}
+}
+@media (min-width:1100px){
+  .wrap{max-width:1140px}
   section.group h2{font-size:1.7rem}
   .gsum{font-size:.9rem}
   .note{font-size:.95rem;max-width:70ch}
   /* items in two columns inside each category card */
-  .rows{display:grid;grid-template-columns:1fr 1fr}
+  .rows{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
   .row{min-height:64px;padding:10px 12px 10px 16px}
   .row:nth-child(2){border-top:0}
   .row:nth-child(even){border-left:1px solid var(--line)}
@@ -437,9 +441,13 @@ function paintRow(key){
   const v=counts[key]||0;
   r.classList.toggle("has",v!==0);r.classList.toggle("neg",v<0);
   const lastEl=r.querySelector(".last");
-  const L=lastMap[mode][key];
+  let L=lastMap[mode][key];
+  // Saved before entries were tracked one by one: show the saved total instead.
+  if(!L&&state[mode].totals[key])L={n:state[mode].totals[key],t:null,who:null,old:true};
   lastEl.hidden=!L;
-  if(L){lastEl.textContent="";const a=document.createElement("span");a.textContent="Last";
+  if(L&&L.old){lastEl.textContent="";const a=document.createElement("span");a.textContent="Saved";const nb=document.createElement("b");nb.textContent=String(L.n);
+    const tm=document.createElement("small");tm.textContent="earlier";lastEl.title="Saved earlier today (total)";lastEl.append(a,nb,tm)}
+  else if(L){lastEl.textContent="";const a=document.createElement("span");a.textContent="Last";
     const nb=document.createElement("b");nb.textContent=(L.n>0&&mode==="produced"?"+":"")+L.n;if(L.n<0)nb.className="minus";
     const tm=document.createElement("small");tm.textContent=fmtTime(L.t);lastEl.title="Last saved by "+(L.who||"?")+" at "+fmtTime(L.t);lastEl.append(a,nb,tm)}
 }
