@@ -1,5 +1,5 @@
 // ============================================================
-//  EOD Waste / Production — Google Apps Script (API version 2, rev 5)
+//  EOD Waste / Production — Google Apps Script (API version 2, rev 6)
 //
 //  Paste into your Google Sheet: Extensions > Apps Script, replace everything, Save.
 //  PINs live in Project Settings > Script properties (never in this code):
@@ -409,7 +409,7 @@ function applyToProduced_(date, counts, extras, sign, name, note, itemKeys) {
   if (note) row[COL.notes] = (String(row[COL.notes] || '') ? String(row[COL.notes]) + ' | ' : '') + name + ': ' + note;
   row[COL.notes] = String(row[COL.notes] || '').slice(-1000);
   const pieces = Object.keys(counts).reduce(function (t, k) { return t + counts[k]; }, 0) + extras.reduce(function (t, x) { return t + x.count; }, 0);
-  row[COL.log] = ((String(row[COL.log] || '') ? String(row[COL.log]) + '; ' : '') + stamp + ' ' + name + (sign > 0 ? ' +' : ' removed ') + pieces).slice(-2000);
+  row[COL.log] = ((String(row[COL.log] || '') ? String(row[COL.log]) + '; ' : '') + stamp + ' ' + name + (sign > 0 ? (pieces < 0 ? ' ' : ' +') : ' removed ') + pieces).slice(-2000);
   let written;
   if (rowNum) { sh.getRange(rowNum, 1, 1, width).setValues([row]); written = rowNum; }
   else {
@@ -446,10 +446,19 @@ function addBatch_(data) {
     const counts = {};
     Object.keys(data.counts || {}).forEach(function (k) {
       const n = Math.floor(Number(data.counts[k]));
-      if (KEY_RE.test(k) && n > 0 && n < 1000) counts[k] = n;
+      // Minus numbers correct an earlier batch (e.g. -2 when 2 too many were entered).
+      if (KEY_RE.test(k) && n !== 0 && n > -1000 && n < 1000) counts[k] = n;
     });
     const extras = cleanExtras_(data.extras);
     if (!Object.keys(counts).length && !extras.length) return { ok: false, error: 'empty' };
+    // A correction can't take an item below 0.
+    const neg = Object.keys(counts).filter(function (k) { return counts[k] < 0; });
+    if (neg.length) {
+      const pr = findRow_(sh, date, 'Produced');
+      const cur = pr ? readRow_(sh, pr, header_(sh)).counts : {};
+      const bad = neg.filter(function (k) { return (cur[k] || 0) + counts[k] < 0; });
+      if (bad.length) return { ok: false, error: 'below_zero', items: bad, totals: cur };
+    }
     const note = String(data.notes || '').trim().slice(0, 300);
     const record = applyToProduced_(date, counts, extras, 1, name, note, Array.isArray(data.itemKeys) ? data.itemKeys.map(String) : []);
     const b = getBatches_();
