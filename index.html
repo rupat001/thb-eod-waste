@@ -57,6 +57,9 @@ section.group h2{font-family:var(--display);font-weight:800;font-size:1.4rem;lin
 .jump button{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;min-height:40px;padding:8px 14px;font-size:.82rem;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
 .jump button .n{display:inline-block;min-width:18px;margin-left:5px;padding:0 5px;border-radius:999px;background:var(--accent);color:var(--accent-fg);font-size:.72rem;font-variant-numeric:tabular-nums}
 .jump button .n:empty{display:none}
+.jump button.on{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.jump button.on .n{background:var(--accent-fg);color:var(--accent)}
+section.group.on h2{color:var(--accent)}
 .row .name b{font-size:1rem}
 .rows{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
 .row{display:flex;align-items:center;gap:10px;padding:8px 10px 8px 14px;border-top:1px solid var(--line);min-height:54px}
@@ -120,10 +123,6 @@ header.top{border-top:6px solid var(--accent)}
 .modebar small{display:block;font-family:var(--body);font-weight:500;font-size:.78rem;letter-spacing:0;opacity:.9}
 .tabs button#tab_produced[aria-selected="false"]{color:var(--pro)}
 .tabs button#tab_waste[aria-selected="false"]{color:var(--was)}
-.row .was.tot{display:inline-flex;flex-wrap:wrap;align-items:baseline;column-gap:5px;margin-top:4px;padding:2px 9px;max-width:100%;border-radius:999px;background:var(--accent-soft);color:var(--fg);font-size:.85rem;font-weight:600}
-.row .was.tot b{font-size:1.25rem;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums;line-height:1.2}
-.row .was.tot span{font-size:.75rem;white-space:nowrap}
-.row .was.tot i{font-style:normal;color:var(--muted);font-weight:600}
 .row .last{flex:none;display:grid;justify-items:center;gap:1px;min-width:66px;padding:4px 8px;border-radius:10px;border:1px dashed var(--line);line-height:1.1;text-align:center}
 .row .last span{font-size:.66rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
 .row .last b{font-size:1.2rem;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums}
@@ -136,21 +135,8 @@ header.top{border-top:6px solid var(--accent)}
   .row:has(.last:not([hidden])) .step button{width:44px}.row:has(.last:not([hidden])) .step input{width:54px}
   .row:has(.last:not([hidden])){gap:8px}}
 .row.neg .step input{border-color:var(--warn);background:var(--warn-soft);color:var(--warn)}
-.row.neg .was.tot i{color:var(--warn);font-weight:800}
 .mlist li.neg b{color:var(--warn)}
-@media (min-width:700px){.row .was.tot{font-size:.95rem}.row .was.tot b{font-size:1.45rem}}
-/* batches list */
-.batches{display:grid;gap:10px}
-.batches h2{font-family:var(--display);font-weight:800;font-size:1.4rem;margin:0}
-.brow{display:flex;align-items:center;gap:10px;padding:10px 12px 10px 14px;border-top:1px solid var(--line)}
-.brow:first-child{border-top:0}
-.brow .bi{flex:1;min-width:0}
-.brow .bi b{display:block;font-weight:600}
-.brow .bi small{display:block;color:var(--muted);font-size:.8rem}
-.brow.off .bi{opacity:.55}.brow.off .bi b{text-decoration:line-through}
-.brow button{flex:none;border:1px solid var(--line);background:var(--bg);border-radius:8px;min-height:40px;padding:8px 12px;font-weight:600;cursor:pointer;color:var(--fg)}
-.batches .rows{display:block}
-/* confirm before saving */
+@media (min-width:700px){/* confirm before saving */
 .modal{position:fixed;inset:0;z-index:15;background:rgba(0,0,0,.45);display:grid;place-items:center;padding:max(16px,env(safe-area-inset-top,0px)) 16px max(16px,env(safe-area-inset-bottom,0px))}
 .mcard{width:100%;max-width:440px;max-height:100%;overflow:auto;background:var(--surface);border-radius:16px;border-top:10px solid var(--accent);padding:20px;display:grid;gap:12px}
 .mhead{justify-self:start;background:var(--accent);color:var(--accent-fg);border-radius:6px;padding:3px 10px;font-weight:800;letter-spacing:.08em;font-size:.85rem}
@@ -252,11 +238,7 @@ input[type=date]::-webkit-date-and-time-value{text-align:left}
     <div id="entered" class="banner info" hidden>These waste numbers are already in ClearView. If you change them, the manager will be told to fix ClearView too.</div>
     <p class="note" id="hint"></p>
     <div id="groups"></div>
-    <section class="batches" id="batches" hidden>
-      <h2 id="bTitle">Today's batches</h2>
-      <div class="rows" id="bList"></div>
-    </section>
-    <label class="f" for="notes"><span id="notesLabel">Notes (optional)</span>
+    <label class="f" for="notes"><span id="notesLabel">Note (optional)</span>
       <textarea id="notes" placeholder="Anything the manager should know"></textarea>
     </label>
   </div>
@@ -315,15 +297,16 @@ const $ = id => document.getElementById(id);
 const MODES = {
   produced:{title:"Production Sheet", btn:"Add to production", word:"Production",
     bar:"ADDING PRODUCTION", sub:"Enter only what you just made",
-    hint:"Enter only what you just made. It's added to the day's total, so add each batch as you make it. Entered too many earlier? Tap − below 0 (e.g. −2) to take them off, or remove the whole batch at the bottom."},
-  waste:{title:"EOD Waste Sheet", btn:"Save waste", word:"Waste",
-    bar:"ENTERING WASTE", sub:"End-of-day count of what's thrown out",
-    hint:"Count what's left to throw out at end of day. Sold more after counting? Pick the same date, fix the number and save again."}
+    hint:"Enter only what you just made. It's added to the day's total. Entered too many earlier? Tap − below 0 (e.g. −2) to take them off."},
+  waste:{title:"EOD Waste Sheet", btn:"Add to waste", word:"Waste",
+    bar:"ENTERING WASTE", sub:"Enter only what you're throwing out now",
+    hint:"Enter only what you're throwing out now. It's added to the day's total. Entered too many earlier? Tap − below 0 (e.g. −2) to take them off."}
 };
 const blank = () => ({counts:{}, notes:"", extras:[], savedCounts:{}, savedNotes:"", savedExtras:[], info:null, totals:{}, batches:[]});
 const state = {produced:blank(), waste:blank()};
 let mode = "produced";
 let counts = state.produced.counts;
+let spyRaf = 0, spyOn = null;   // category highlight
 let saving = false, loadedDate = null, loadSeq = 0, loadFailed = false, followToday = true;
 const todayStr=EOD.todayStr, fmtDate=s=>EOD.fmtDate(s), fmtTime=EOD.fmtTime, toast=EOD.toast;
 const pin = EOD.makePin("eodw_pin");
@@ -387,7 +370,7 @@ function buildForm(groups){
   for(const m in state){state[m].counts={};state[m].savedCounts={}}
   for(const [,items] of groups)for(const [k,l] of items)LABEL[k]=l;
   counts=state[mode].counts;
-  GROUPS=groups;ITEM_KEYS=groups.flatMap(g=>g[1].map(i=>i[0]));
+  GROUPS=groups;ITEM_KEYS=groups.flatMap(g=>g[1].map(i=>i[0]));spyOn=null;
 for (const [title,items] of GROUPS){
     const sec=document.createElement("section");sec.className="group";sec.id="g_"+title.toLowerCase();
     const gh=document.createElement("div");gh.className="ghead";
@@ -441,51 +424,38 @@ async function refreshItems(){
 }
 
 // ---------- counts & summary ----------
+// Both tabs work the same way: staff type what they're ADDING now (minus = correction).
+// The day's totals and the list of entries (batches) come from the Sheet.
 function setCount(key,v,fromInput){
-  // Production can go below 0 to correct an earlier batch, but never below the day's total.
-  const min=(mode==="produced"&&!extras[key])?-(state.produced.totals[key]||0):0;
+  const min=extras[key]?0:-(state[mode].totals[key]||0); // a correction can't go below the day's total
   v=Math.max(min,Math.min(999,v|0));counts[key]=v;
   const inp=$("c_"+key);if(!fromInput)inp.value=String(v);
   paintRow(key);summary();
 }
 function paintRow(key){
   const r=rowEl[key];if(!r)return;
-  const v=counts[key]||0, sv=state[mode].savedCounts[key]||0, info=state[mode].info;
+  const v=counts[key]||0;
   r.classList.toggle("has",v!==0);r.classList.toggle("neg",v<0);
-  const was=r.querySelector(".was");
-  const lastEl=r.querySelector(".last");lastEl.hidden=true;
-  if(mode==="produced"){ // Production adds up: show the day's total and what this entry makes it.
-    const T=state.produced.totals[key]||0;
-    const L=lastMap[key];
-    if(L){lastEl.hidden=false;lastEl.textContent="";const a=document.createElement("span");a.textContent="Last";
-      const nb=document.createElement("b");nb.textContent=(L.n>0?"+":"")+L.n;if(L.n<0)nb.className="minus";
-      const tm=document.createElement("small");tm.textContent=fmtTime(L.t);lastEl.title="Last saved by "+(L.who||"?")+" at "+fmtTime(L.t);lastEl.append(a,nb,tm)}r.classList.remove("changed");was.className="was tot";
-    was.hidden=!(T>0||v!==0);was.textContent="";
-    const lab=document.createElement("span");lab.textContent="Made today";const num=document.createElement("b");num.textContent=String(T);was.append(lab,num);
-    if(v!==0){const ar=document.createElement("i");ar.textContent=(v<0?"fix "+v+" ":"")+"→ "+(T+v);was.appendChild(ar)}
-    return;
-  }
-  was.className="was";
-  const changed=!!info&&v!==sv;
-  r.classList.toggle("changed",changed);
-  was.hidden=!changed;if(changed)was.textContent="Saved: "+sv+" → now "+v;
+  const lastEl=r.querySelector(".last");
+  const L=lastMap[mode][key];
+  lastEl.hidden=!L;
+  if(L){lastEl.textContent="";const a=document.createElement("span");a.textContent="Last";
+    const nb=document.createElement("b");nb.textContent=(L.n>0&&mode==="produced"?"+":"")+L.n;if(L.n<0)nb.className="minus";
+    const tm=document.createElement("small");tm.textContent=fmtTime(L.t);lastEl.title="Last saved by "+(L.who||"?")+" at "+fmtTime(L.t);lastEl.append(a,nb,tm)}
 }
 function isDirty(m){
   const s=state[m];
-  if(($("notes").value.trim()!==s.savedNotes.trim())&&m===mode)return true;
-  if(m!==mode&&s.notes.trim()!==s.savedNotes.trim())return true;
-  const keys=new Set([...Object.keys(s.counts),...Object.keys(s.savedCounts)]);
-  for(const k of keys)if((s.counts[k]||0)!==(s.savedCounts[k]||0))return true;
+  if(m===mode?$("notes").value.trim():s.notes.trim())return true;
+  for(const k in s.counts)if(s.counts[k])return true;
   return false;
 }
 function summary(){
   let c=0,t=0;const g={};
-  for(const k in counts){if(counts[k]!==0&&counts[k]!=null){c++;t+=counts[k];const G=groupOf[k];g[G]=g[G]||{c:0,t:0};g[G].c++;g[G].t+=counts[k]}}
-  $("cnt").textContent=c;$("tot").textContent=t;$("pcsWord").textContent=mode==="produced"?"pieces to add":"pieces";
+  for(const k in counts){if(counts[k]){c++;t+=counts[k];const G=groupOf[k];g[G]=g[G]||{c:0,t:0};g[G].c++;g[G].t+=counts[k]}}
+  $("cnt").textContent=c;$("tot").textContent=t;$("pcsWord").textContent="pieces to add";
   for(const G in groupUI){const s=g[G];const u=groupUI[G];
-    let none="None yet";
-    if(mode==="produced"){let T=0;for(const k in groupOf)if(groupOf[k]===G)T+=state.produced.totals[k]||0;none=T?"Total so far: "+T:"None yet"}
-    u.sum.textContent=s?(mode==="produced"?"Adding ":"")+s.c+(s.c===1?" item · ":" items · ")+s.t:none;u.sum.classList.toggle("on",!!s);
+    let T=0;for(const k in groupOf)if(groupOf[k]===G)T+=state[mode].totals[k]||0;
+    u.sum.textContent=s?"Adding "+s.c+(s.c===1?" item · ":" items · ")+s.t:(T?"Total so far: "+T:"None yet");u.sum.classList.toggle("on",!!s);
     u.chip.textContent=s?String(s.t):""}
   paintStatus();
 }
@@ -497,14 +467,9 @@ function paintStatus(){
   if(loadFailed){tx.textContent="Couldn't load — saving is off";$("unsaved").hidden=true;return}
   const dirty=isDirty(mode);
   $("unsaved").hidden=!dirty;
-  if(mode==="produced"){
-    const T=Object.values(s.totals).reduce((a,b)=>a+(b||0),0), n=s.batches.filter(b=>!b.removed).length;
-    if(dirty){el.classList.add("dirty");tx.textContent="Not added yet — tap "+M.btn}
-    else if(T){el.classList.add("saved");tx.textContent="Total for "+fmtDate(loadedDate)+": "+T+" pieces"+(n?" in "+n+(n===1?" batch":" batches"):"")+(s.info?" · last change "+fmtTime(s.info.savedAt)+(s.info.preparedBy?" by "+s.info.preparedBy:""):"")}
-    else tx.textContent="Nothing made yet for "+fmtDate(loadedDate);
-  }
-  else if(dirty){el.classList.add("dirty");tx.textContent=s.info?"Unsaved changes — tap "+M.btn:"Not saved yet";}
-  else if(s.info){el.classList.add("saved");tx.textContent=M.word+" saved "+fmtTime(s.info.savedAt)+(s.info.preparedBy?" by "+s.info.preparedBy:"")}
+  const T=Object.values(s.totals).reduce((a,b)=>a+(b||0),0);
+  if(dirty){el.classList.add("dirty");tx.textContent="Not saved yet — tap "+M.btn}
+  else if(T){el.classList.add("saved");tx.textContent=M.word+" total for "+fmtDate(loadedDate)+": "+T+" pieces"+(s.info?" · last saved "+fmtTime(s.info.savedAt)+(s.info.preparedBy?" by "+s.info.preparedBy:""):"")}
   else tx.textContent="No "+M.word.toLowerCase()+" saved for "+fmtDate(loadedDate)+" yet";
   $("submit").textContent=M.btn;
   $("entered").hidden=!(mode==="waste"&&s.info&&/^(Entered|Changed after entry)$/.test(s.info.status));
@@ -525,11 +490,9 @@ function render(){
   document.body.classList.toggle("m-produced",m==="produced");document.body.classList.toggle("m-waste",m==="waste");
   $("modebar").textContent=M.bar;const sb=document.createElement("small");sb.textContent=M.sub;$("modebar").appendChild(sb);
   const tc=document.querySelector('meta[name="theme-color"]');if(tc)tc.content=m==="produced"?"#1f7a4a":"#b3261e";
-  $("notesLabel").textContent=m==="produced"?"Note for this batch (optional)":"Notes (optional)";
-  renderBatches();
   $("tab_produced").setAttribute("aria-selected",m==="produced");
   $("tab_waste").setAttribute("aria-selected",m==="waste");
-  summary();fitHeader();
+  summary();fitHeader();spy();
 }
 $("tab_produced").onclick=()=>setMode("produced");
 $("tab_waste").onclick=()=>setMode("waste");
@@ -538,101 +501,30 @@ $("tab_waste").onclick=()=>setMode("waste");
 function applyDay(data){
   state[mode].notes=$("notes").value;
   clearExtras();
-  applyProduced(data&&data.produced,data&&data.batches,false);
-  for(const m of ["waste"]){
-    const rec=data&&data[m];const s=state[m];
-    for(const k in s.counts)s.counts[k]=0;
-    s.savedCounts={};s.info=rec||null;s.savedNotes=rec?rec.notes||"":"";s.notes=s.savedNotes;
-    if(rec){
-      for(const k in rec.counts){if(k in s.counts){s.counts[k]=rec.counts[k];s.savedCounts[k]=rec.counts[k]}}
-      for(const x of rec.extras||[]){if(!groupUI[x.group])continue;const key=addExtra(x.group,x.name);s.counts[key]=x.count;s.savedCounts[key]=x.count}
-    }
-  }
-  for(const m in state)for(const k in groupOf){if(!(k in state[m].counts))state[m].counts[k]=0}
+  const bs=(data&&data.batches)||[];
+  for(const m of ["produced","waste"])applyTab(m,data&&data[m],bs.filter(b=>(b.type||"produced")===m),false);
   render();
 }
-// Refresh just one tab from the Sheet after saving it, leaving the other tab's unsaved numbers alone.
-// Production: typed numbers are what's being ADDED; totals/batches come from the Sheet.
-function applyProduced(rec,batches,keepTyped){
-  const s=state.produced;
-  if(!keepTyped){for(const k in s.counts)s.counts[k]=0;s.notes="";s.savedNotes="";s.savedCounts={}}
+// One tab from the Sheet: totals + entries. keepTyped = leave what's being typed (after a refused save).
+function applyTab(m,rec,batches,keepTyped){
+  const s=state[m];
+  if(!keepTyped){for(const k in s.counts)s.counts[k]=0;s.notes=""}
   s.info=rec||null;s.totals={};s.batches=Array.isArray(batches)?batches:[];
   if(rec){
     for(const k in rec.counts){if(k in s.counts)s.totals[k]=rec.counts[k]}
     for(const x of rec.extras||[]){if(!groupUI[x.group])continue;const key=addExtra(x.group,x.name);s.totals[key]=x.count}
   }
   for(const mm in state)for(const k in groupOf){if(!(k in state[mm].counts))state[mm].counts[k]=0}
-  buildLastMap();
+  buildLastMap(m);
 }
-// Most recent batch (not removed) that included each item: key -> {n, t, who}
-let lastMap={};
-function buildLastMap(){
-  lastMap={};
-  for(const b of state.produced.batches){if(b.removed)continue;
-    for(const k in b.counts||{})lastMap[k]={n:b.counts[k],t:b.savedAt,who:b.name};
-    for(const x of b.extras||[]){const k=Object.keys(extras).find(e=>extras[e].group===x.group&&extras[e].name.toLowerCase()===String(x.name).toLowerCase());if(k)lastMap[k]={n:x.count,t:b.savedAt,who:b.name}}}
-}
-function batchText(b){
-  const parts=[];
-  for(const k in b.counts||{})parts.push((LABEL[k]||k.replace(/_/g," "))+" "+b.counts[k]);
-  for(const x of b.extras||[])parts.push(x.name+" "+x.count);
-  return parts.join(", ");
-}
-function renderBatches(){
-  const s=state.produced, box=$("bList");
-  $("batches").hidden=!(mode==="produced"&&s.batches.length);
-  if($("batches").hidden)return;
-  $("bTitle").textContent=(loadedDate===todayStr()?"Today's":fmtDate(loadedDate))+" batches";
-  box.textContent="";
-  for(const b of s.batches.slice().reverse()){
-    const r=document.createElement("div");r.className="brow"+(b.removed?" off":"");
-    const i=document.createElement("div");i.className="bi";
-    const t=document.createElement("b");t.textContent=fmtTime(b.savedAt)+" · "+(b.name||"?");
-    const d=document.createElement("small");d.textContent=batchText(b);
-    i.append(t,d);
-    if(b.removed){const x=document.createElement("small");x.textContent=b.removed;i.appendChild(x)}
-    r.appendChild(i);
-    if(!b.removed){const bt=document.createElement("button");bt.type="button";bt.textContent="Remove";bt.setAttribute("aria-label","Remove "+(b.name||"")+"'s "+fmtTime(b.savedAt)+" batch");bt.onclick=()=>removeBatch(b);r.appendChild(bt)}
-    box.appendChild(r);
-  }
-}
-async function removeBatch(b){
-  const name=$("who").value.trim();
-  if(!name){toast("Add your name first");$("who").focus();return}
-  if(!confirm("Remove "+(b.name||"this")+"'s "+fmtTime(b.savedAt)+" batch?\n\n"+batchText(b)+"\n\nThese numbers come off the total."))return;
-  try{
-    const r=await api("removeBatch",{date:loadedDate,batchId:b.id,preparedBy:name});
-    if(!r.ok){toast(r.error==="not_found"?"That batch wasn't found. Pull down to refresh.":"Couldn't remove it. Try again.");return}
-    applyProduced(r.record,r.batches,true);render();toast("Batch removed");
-  }catch(e){if(!e.pin)toast("Couldn't reach the Sheet. Try again.")}
-}
-function applyOne(m,rec){
-  state[mode].notes=$("notes").value;
-  const s=state[m];
-  for(const k in s.counts)s.counts[k]=0;
-  s.savedCounts={};s.info=rec||null;s.savedNotes=rec?rec.notes||"":"";s.notes=s.savedNotes;
-  if(rec){
-    for(const k in rec.counts){if(k in s.counts){s.counts[k]=rec.counts[k];s.savedCounts[k]=rec.counts[k]}}
-    for(const x of rec.extras||[]){if(!groupUI[x.group])continue;const key=addExtra(x.group,x.name);s.counts[key]=x.count;s.savedCounts[key]=x.count}
-  }
-  for(const mm in state)for(const k in groupOf){if(!(k in state[mm].counts))state[mm].counts[k]=0}
-  render();
-}
-
-// Another device saved this day first: make its numbers the "saved" baseline, keep this person's typing.
-function takeNewerSaved(m,rec){
-  const s=state[m];
-  if(m===mode)s.notes=$("notes").value;
-  const oldSaved=s.savedCounts, oldNotes=s.savedNotes;
-  const newSaved={};
-  for(const k in rec.counts){if(k in s.counts)newSaved[k]=rec.counts[k]}
-  for(const x of rec.extras||[]){if(!groupUI[x.group])continue;const key=addExtra(x.group,x.name);newSaved[key]=x.count;if(!(key in s.counts))s.counts[key]=0}
-  for(const mm in state)for(const k in groupOf){if(!(k in state[mm].counts))state[mm].counts[k]=0}
-  // Items this person didn't touch take the newer number; items they changed keep their typing.
-  for(const k in s.counts){if((s.counts[k]||0)===(oldSaved[k]||0))s.counts[k]=newSaved[k]||0}
-  if(s.notes.trim()===oldNotes.trim())s.notes=rec.notes||"";
-  s.info=rec;s.savedCounts=newSaved;s.savedNotes=rec.notes||"";
-  render();
+// Most recent entry (not removed) that included each item: key -> {n, t, who}
+const lastMap={produced:{},waste:{}};
+function buildLastMap(m){
+  const map={};
+  for(const b of state[m].batches){if(b.removed)continue;
+    for(const k in b.counts||{})map[k]={n:b.counts[k],t:b.savedAt,who:b.name};
+    for(const x of b.extras||[]){const k=Object.keys(extras).find(e=>extras[e].group===x.group&&extras[e].name.toLowerCase()===String(x.name).toLowerCase());if(k)map[k]={n:x.count,t:b.savedAt,who:b.name}}}
+  lastMap[m]=map;
 }
 
 // ---------- PIN screen (shared code in common.js) ----------
@@ -697,18 +589,17 @@ function askConfirm(m,c,x,d){
   return new Promise(res=>{
     const P=m==="produced";
     $("cfHead").textContent=P?"PRODUCTION":"WASTE";
-    $("cfTitle").textContent=(P?"Add to production for ":"Save waste for ")+fmtDate(d)+"?";
+    $("cfTitle").textContent=(P?"Add to production for ":"Add to waste for ")+fmtDate(d)+"?";
     const list=$("cfList");list.textContent="";let n=0,t=0;
-    const li=(label,v)=>{const e=document.createElement("li");if(v<0)e.className="neg";const a=document.createElement("span");a.textContent=label+(v<0?" (correction)":"");const b=document.createElement("b");b.textContent=(P&&v>0?"+":"")+v;e.append(a,b);list.appendChild(e);n++;t+=v};
+    const li=(label,v)=>{const e=document.createElement("li");if(v<0)e.className="neg";const a=document.createElement("span");a.textContent=label+(v<0?" (correction)":"");const b=document.createElement("b");b.textContent=(v>0?"+":"")+v;e.append(a,b);list.appendChild(e);n++;t+=v};
     for(const k of ITEM_KEYS)if(c[k])li(LABEL[k]||k,c[k]);
     for(const k in c)if(!ITEM_KEYS.includes(k))li(LABEL[k]||k,c[k]);
     for(const e of x)li(e.name+" (just today)",e.count);
-    if(!n){const e=document.createElement("li");e.textContent="No waste — every item is 0";list.appendChild(e)}
     $("cfSum").textContent=n?n+(n===1?" item · ":" items · ")+t+" pieces":"";
     $("cfWrong").textContent=P?"Is this actually waste? Tap Go back and switch to the red Waste tab.":"Is this actually production? Tap Go back and switch to the green Produced tab.";
-    const fix=P&&Object.values(c).some(v=>v<0);
-    if(fix)$("cfTitle").textContent="Save production correction for "+fmtDate(d)+"?";
-    $("cfYes").textContent=P?(fix?"Yes, save correction":"Yes, add production"):"Yes, save waste";
+    const fix=Object.values(c).some(v=>v<0);
+    if(fix)$("cfTitle").textContent="Save "+(P?"production":"waste")+" correction for "+fmtDate(d)+"?";
+    $("cfYes").textContent=fix?"Yes, save correction":(P?"Yes, add production":"Yes, add waste");
     $("cfWho").value=$("who").value.trim();$("cfMsg").textContent="";
     $("confirm").hidden=false;setTimeout(()=>($("cfWho").value?$("cfYes"):$("cfWho")).focus(),50);
     const done=v=>{$("confirm").hidden=true;document.removeEventListener("keydown",esc,true);res(v)};
@@ -731,55 +622,53 @@ async function save(){
   const d=loadedDate||$("date").value||todayStr();
   const c={},x=[];
   const m=mode;
-  for(const k in counts){const v=counts[k];if(extras[k]){if(v>0)x.push({group:extras[k].group,name:extras[k].name,count:v})}else if(v>0||(m==="produced"&&v<0))c[k]=v}
-  if(m==="produced"&&!Object.keys(c).length&&!x.length){toast("Enter what you just made first");return false}
+  for(const k in counts){const v=counts[k];if(extras[k]){if(v>0)x.push({group:extras[k].group,name:extras[k].name,count:v})}else if(v)c[k]=v}
+  if(!Object.keys(c).length&&!x.length){toast(m==="produced"?"Enter what you just made first":"Enter the waste first");return false}
   saving=true;
   const name=await askConfirm(m,c,x,d);
   if(!name){saving=false;return false}
   const btn=$("submit");btn.disabled=true;btn.textContent="Saving…";
   try{
-    if(m==="produced"){
-      const notes=$("notes").value.trim();
-      const sig=JSON.stringify([d,c,x,notes]);
-      if(!pendingBatch||pendingBatch.sig!==sig)pendingBatch={sig,id:newBatchId()};
-      const data=await api("addBatch",{date:d,preparedBy:name,batchId:pendingBatch.id,counts:c,extras:x,notes,itemKeys:ITEM_KEYS});
-      if(data&&!data.ok){
-        const why={bad_date:"That date can't be used (entries are "+fmtDate(CFG.START_DATE)+" to today).",no_name:"Add your name first.",empty:"Enter what you just made first.",
-          below_zero:"That would take "+(data.items||[]).map(k=>LABEL[k]||k).join(", ")+" below 0. Someone may have changed it — the totals are refreshed, check and try again."}[data.error];
-        if(data.error==="below_zero")api("load",{date:d}).then(r=>{if(!r||!r.ok)return;applyProduced(r.produced,r.batches,true);
-          const P=state.produced;for(const k in P.counts){const lo=-(P.totals[k]||0);if(P.counts[k]<lo)P.counts[k]=lo}render()}).catch(()=>{});
-        if(why)toast(why,6000);else if(!/unknown_action|old_client/.test(data.error))toast("Couldn't add it. Try again.");
-        return false;
-      }
-      if(!data||!(data.batches||[]).some(b=>b.id===pendingBatch.id))throw new Error("not confirmed");
-      pendingBatch=null;
-      applyProduced(data.record,data.batches,false);render();
-      toast("Added to production for "+fmtDate(d));
-      return true;
-    }
-    const base=state[m].info?(state[m].info.version||state[m].info.savedAt):"";
-    const data=await api("save",{type:m,date:d,preparedBy:name,notes:$("notes").value.trim(),counts:c,extras:x,itemKeys:ITEM_KEYS,base});
-    if(data&&!data.ok&&data.error==="changed"&&data.record){
-      // Someone else saved this day after this device loaded it. Keep what this person typed,
-      // compare it against the newer numbers, and let them check before saving again.
-      takeNewerSaved(m,data.record);
-      toast((data.record.preparedBy||"Someone")+" saved this at "+fmtTime(data.record.savedAt)+" after you opened it. Rows marked \"Saved: … → now …\" show what's different. Check them, then save again.",9000);
+    const notes=$("notes").value.trim();
+    const sig=JSON.stringify([m,d,c,x,notes]);
+    if(!pendingBatch||pendingBatch.sig!==sig)pendingBatch={sig,id:newBatchId()};
+    const data=await api("addBatch",{type:m,date:d,preparedBy:name,batchId:pendingBatch.id,counts:c,extras:x,notes,itemKeys:ITEM_KEYS});
+    if(data&&!data.ok){
+      const why={bad_date:"That date can't be used (entries are "+fmtDate(CFG.START_DATE)+" to today).",no_name:"Add your name first.",empty:"Enter the numbers first.",
+        below_zero:"That would take "+(data.items||[]).map(k=>LABEL[k]||k).join(", ")+" below 0. Someone may have changed it — the totals are refreshed, check and try again."}[data.error];
+      if(data.error==="below_zero")api("load",{date:d}).then(r=>{if(!r||!r.ok)return;applyTab(m,r[m],(r.batches||[]).filter(b=>(b.type||"produced")===m),true);
+        const S=state[m];for(const k in S.counts){const lo=-(S.totals[k]||0);if(S.counts[k]<lo)S.counts[k]=lo}render()}).catch(()=>{});
+      if(why)toast(why,6000);else if(!/unknown_action|old_client/.test(data.error))toast("Couldn't save it. Try again.");
       return false;
     }
-    if(data&&!data.ok){
-      const why={bad_date:"That date can't be used (entries are "+fmtDate(CFG.START_DATE)+" to today).",no_name:"Add your name first."}[data.error];
-      if(why){toast(why,6000);return false}
-    }
-    // The Sheet sends back what it now holds, so staff see exactly what was saved.
-    const rec=data&&data.ok&&data.record;
-    const okCount=rec&&Object.keys(c).every(k=>rec.counts[k]===c[k]);
-    if(!okCount)throw new Error("not confirmed");
-    applyOne(m,rec);toast(MODES[m].word+" saved for "+fmtDate(d));
+    if(!data||!(data.batches||[]).some(b=>b.id===pendingBatch.id))throw new Error("not confirmed");
+    pendingBatch=null;
+    if(m===mode)$("notes").value="";
+    applyTab(m,data.record,data.batches.filter(b=>(b.type||"produced")===m),false);render();
+    toast((m==="produced"?"Added to production for ":"Waste saved for ")+fmtDate(d));
     return true;
   }catch(e){if(!e.pin)toast("Couldn't confirm the save. Check your connection and tap Save again.");return false}
   finally{saving=false;btn.disabled=false;paintStatus()}
 }
 $("submit").onclick=save;
+
+// ---------- highlight the category being looked at ----------
+function spy(){
+  const top=($("stick").getBoundingClientRect().bottom||0)+24;
+  let cur=null;
+  for(const sec of document.querySelectorAll("#groups section.group")){if(sec.getBoundingClientRect().top<=top)cur=sec;else break}
+  if(!cur)cur=document.querySelector("#groups section.group");
+  // At the very bottom, the last category is the one in view.
+  if(innerHeight+scrollY>=document.documentElement.scrollHeight-4){const all=document.querySelectorAll("#groups section.group");cur=all[all.length-1]||cur}
+  if(cur===spyOn)return;spyOn=cur;
+  const chips=$("jump").children;let i=0;
+  for(const sec of document.querySelectorAll("#groups section.group")){
+    const on=sec===cur;sec.classList.toggle("on",on);const ch=chips[i++];
+    if(ch){ch.classList.toggle("on",on);ch.setAttribute("aria-current",on?"true":"false");
+      if(on){const j=$("jump"),l=ch.offsetLeft-j.offsetLeft,r=l+ch.offsetWidth;if(l<j.scrollLeft||r>j.scrollLeft+j.clientWidth)j.scrollTo({left:Math.max(0,l-16),behavior:"smooth"})}}
+  }
+}
+addEventListener("scroll",()=>{if(!spyRaf)spyRaf=requestAnimationFrame(()=>{spyRaf=0;spy()})},{passive:true});
 
 // ---------- start ----------
 function fitHeader(){document.documentElement.style.setProperty("--headH",($("stick").offsetHeight+14)+"px")}
