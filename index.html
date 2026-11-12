@@ -120,8 +120,10 @@ header.top{border-top:6px solid var(--accent)}
 .modebar small{display:block;font-family:var(--body);font-weight:500;font-size:.78rem;letter-spacing:0;opacity:.9}
 .tabs button#tab_produced[aria-selected="false"]{color:var(--pro)}
 .tabs button#tab_waste[aria-selected="false"]{color:var(--was)}
-.row .was.tot{color:var(--muted);font-weight:500}
-.row.has .was.tot{color:var(--accent);font-weight:700}
+.row .was.tot{display:inline-flex;align-items:baseline;gap:6px;margin-top:4px;padding:2px 10px;border-radius:999px;background:var(--accent-soft);color:var(--fg);font-size:.85rem;font-weight:600}
+.row .was.tot b{font-size:1.25rem;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums;line-height:1.2}
+.row .was.tot i{font-style:normal;color:var(--muted);font-weight:600}
+@media (min-width:700px){.row .was.tot{font-size:.95rem}.row .was.tot b{font-size:1.45rem}}
 /* batches list */
 .batches{display:grid;gap:10px}
 .batches h2{font-family:var(--display);font-weight:800;font-size:1.4rem;margin:0}
@@ -435,7 +437,10 @@ function paintRow(key){
   const was=r.querySelector(".was");
   if(mode==="produced"){ // Production adds up: show the day's total and what this entry makes it.
     const T=state.produced.totals[key]||0;r.classList.remove("changed");was.className="was tot";
-    was.hidden=!(T>0||v>0);was.textContent=v>0?"Total: "+T+" → "+(T+v):"Total so far: "+T;return;
+    was.hidden=!(T>0||v>0);was.textContent="";
+    const lab=document.createElement("span");lab.textContent="Made today";const num=document.createElement("b");num.textContent=String(T);was.append(lab,num);
+    if(v>0){const ar=document.createElement("i");ar.textContent="→ "+(T+v);was.appendChild(ar)}
+    return;
   }
   was.className="was";
   const changed=!!info&&v!==sv;
