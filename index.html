@@ -280,9 +280,9 @@ input[type=date]::-webkit-date-and-time-value{text-align:left}
   </form>
 </div>
 
-<script src="config.js"></script>
-<script src="items.js"></script>
-<script src="common.js"></script>
+<script src="config.js?v=2026-11-12.2"></script>
+<script src="items.js?v=2026-11-12.2"></script>
+<script src="common.js?v=2026-11-12.2"></script>
 <script>
 // Item list: items.js.  Sheet link + start date: config.js.  Shared helpers: common.js.
 // Item list: the Sheet's Items tab (set on the Manager page). Until it loads, use the last copy
@@ -676,6 +676,23 @@ function spy(){
 }
 addEventListener("scroll",()=>{if(!spyRaf)spyRaf=requestAnimationFrame(()=>{spyRaf=0;spy()})},{passive:true});
 
+// ---------- staying up to date (store iPad is left open all day) ----------
+// version.json says which build is live. If it's newer, reload once nobody is mid-entry.
+// The ?v= in the address makes the iPad fetch the new page instead of its saved copy.
+const BUILD="2026-11-12.2";
+async function checkUpdate(){
+  try{
+    const j=await (await fetch("version.json?t="+Date.now(),{cache:"no-store"})).json();
+    if(!j||!j.build||j.build===BUILD)return;
+    if(saving||["produced","waste"].some(isDirty)||!$("confirm").hidden)return;
+    let tried="";try{tried=sessionStorage.getItem("eodw_tried")||""}catch(e){}
+    if(tried===j.build)return; // already reloaded for this build once; don't loop
+    try{sessionStorage.setItem("eodw_tried",j.build)}catch(e){}
+    location.replace(location.pathname+"?v="+encodeURIComponent(j.build));
+  }catch(e){/* offline or no file: keep going */}
+}
+setInterval(checkUpdate,10*60*1000);
+
 // ---------- start ----------
 function fitHeader(){document.documentElement.style.setProperty("--headH",($("stick").offsetHeight+14)+"px")}
 addEventListener("resize",fitHeader);
@@ -688,6 +705,7 @@ function refreshMax(){$("date").max=todayStr()}
 $("date").addEventListener("focus",refreshMax);$("date").addEventListener("click",refreshMax);
 document.addEventListener("visibilitychange",()=>{
   if(document.hidden)return;
+  checkUpdate();
   forgetIfIdle();
   refreshMax();
   if(saving||loadedDate===null||!pin.get())return;
@@ -700,6 +718,7 @@ document.addEventListener("visibilitychange",()=>{
 $("date").value=todayStr();
 setMode("produced");
 (async()=>{ if(pin.get()) await refreshItems(); loadDay($("date").value); })();
+checkUpdate();
 </script>
 </body>
 </html>

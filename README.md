@@ -47,6 +47,13 @@ have unsaved numbers). Don't edit the Items tab by hand; use the Manager page.
   becomes Changed after entry.
 - The name on a shared iPad is forgotten after 2 hours of no use.
 
+## Publishing an update to the staff form
+
+Bump the build in **both** `version.json` and `BUILD` in `index.html` (same text, e.g.
+`2026-11-12.3`), and the `?v=` on its three `<script>` tags. Open forms see the new
+build within 10 minutes (or as soon as the iPad wakes) and reload themselves, never
+while someone has unsaved numbers.
+
 ## Rules that keep things from breaking
 
 1. Numbers are matched to Sheet columns by **header name**, never by position.
