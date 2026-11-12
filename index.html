@@ -120,9 +120,21 @@ header.top{border-top:6px solid var(--accent)}
 .modebar small{display:block;font-family:var(--body);font-weight:500;font-size:.78rem;letter-spacing:0;opacity:.9}
 .tabs button#tab_produced[aria-selected="false"]{color:var(--pro)}
 .tabs button#tab_waste[aria-selected="false"]{color:var(--was)}
-.row .was.tot{display:inline-flex;align-items:baseline;gap:6px;margin-top:4px;padding:2px 10px;border-radius:999px;background:var(--accent-soft);color:var(--fg);font-size:.85rem;font-weight:600}
+.row .was.tot{display:inline-flex;flex-wrap:wrap;align-items:baseline;column-gap:5px;margin-top:4px;padding:2px 9px;max-width:100%;border-radius:999px;background:var(--accent-soft);color:var(--fg);font-size:.85rem;font-weight:600}
 .row .was.tot b{font-size:1.25rem;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums;line-height:1.2}
+.row .was.tot span{font-size:.75rem;white-space:nowrap}
 .row .was.tot i{font-style:normal;color:var(--muted);font-weight:600}
+.row .last{flex:none;display:grid;justify-items:center;gap:1px;min-width:66px;padding:4px 8px;border-radius:10px;border:1px dashed var(--line);line-height:1.1;text-align:center}
+.row .last span{font-size:.66rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.row .last b{font-size:1.2rem;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums}
+.row .last b.minus{color:var(--warn)}
+.row .last small{font-size:.7rem;color:var(--muted);white-space:nowrap}
+@media (max-width:380px){.row .last{min-width:54px;padding:3px 5px}.row .last b{font-size:1.05rem}}
+@media (min-width:700px){
+  .rows{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important}
+  .row .last{min-width:62px;padding:4px 6px}.row .last b{font-size:1.3rem}
+  .row:has(.last:not([hidden])) .step button{width:44px}.row:has(.last:not([hidden])) .step input{width:54px}
+  .row:has(.last:not([hidden])){gap:8px}}
 .row.neg .step input{border-color:var(--warn);background:var(--warn-soft);color:var(--warn)}
 .row.neg .was.tot i{color:var(--warn);font-weight:800}
 .mlist li.neg b{color:var(--warn)}
@@ -351,7 +363,8 @@ function makeRow(rows, title, key, label, unit, isExtra){
   plus.onclick=()=>setCount(key,counts[key]+1);
   inp.onfocus=()=>inp.select();
   inp.oninput=()=>{const raw=inp.value.trim();if(raw==="-")return;const v=parseInt(raw.replace(/[^\d-]/g,"").replace(/(?!^)-/g,""),10);setCount(key,isNaN(v)?0:v,true);if(String(counts[key])!==raw&&raw!=="")inp.value=String(counts[key])};
-  st.append(minus,inp,plus);r.append(n,st);rows.appendChild(r);
+  const last=document.createElement("div");last.className="last";last.hidden=true;
+  st.append(minus,inp,plus);r.append(n,last,st);rows.appendChild(r);
   return inp;
 }
 function addExtra(group,name){
@@ -440,8 +453,13 @@ function paintRow(key){
   const v=counts[key]||0, sv=state[mode].savedCounts[key]||0, info=state[mode].info;
   r.classList.toggle("has",v!==0);r.classList.toggle("neg",v<0);
   const was=r.querySelector(".was");
+  const lastEl=r.querySelector(".last");lastEl.hidden=true;
   if(mode==="produced"){ // Production adds up: show the day's total and what this entry makes it.
-    const T=state.produced.totals[key]||0;r.classList.remove("changed");was.className="was tot";
+    const T=state.produced.totals[key]||0;
+    const L=lastMap[key];
+    if(L){lastEl.hidden=false;lastEl.textContent="";const a=document.createElement("span");a.textContent="Last";
+      const nb=document.createElement("b");nb.textContent=(L.n>0?"+":"")+L.n;if(L.n<0)nb.className="minus";
+      const tm=document.createElement("small");tm.textContent=fmtTime(L.t);lastEl.title="Last saved by "+(L.who||"?")+" at "+fmtTime(L.t);lastEl.append(a,nb,tm)}r.classList.remove("changed");was.className="was tot";
     was.hidden=!(T>0||v!==0);was.textContent="";
     const lab=document.createElement("span");lab.textContent="Made today";const num=document.createElement("b");num.textContent=String(T);was.append(lab,num);
     if(v!==0){const ar=document.createElement("i");ar.textContent=(v<0?"fix "+v+" ":"")+"→ "+(T+v);was.appendChild(ar)}
@@ -544,6 +562,15 @@ function applyProduced(rec,batches,keepTyped){
     for(const x of rec.extras||[]){if(!groupUI[x.group])continue;const key=addExtra(x.group,x.name);s.totals[key]=x.count}
   }
   for(const mm in state)for(const k in groupOf){if(!(k in state[mm].counts))state[mm].counts[k]=0}
+  buildLastMap();
+}
+// Most recent batch (not removed) that included each item: key -> {n, t, who}
+let lastMap={};
+function buildLastMap(){
+  lastMap={};
+  for(const b of state.produced.batches){if(b.removed)continue;
+    for(const k in b.counts||{})lastMap[k]={n:b.counts[k],t:b.savedAt,who:b.name};
+    for(const x of b.extras||[]){const k=Object.keys(extras).find(e=>extras[e].group===x.group&&extras[e].name.toLowerCase()===String(x.name).toLowerCase());if(k)lastMap[k]={n:x.count,t:b.savedAt,who:b.name}}}
 }
 function batchText(b){
   const parts=[];
