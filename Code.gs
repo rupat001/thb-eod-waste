@@ -1,5 +1,5 @@
 // ============================================================
-//  EOD Waste / Production — Google Apps Script (API version 2, rev 7)
+//  EOD Waste / Production — Google Apps Script (API version 2, rev 8)
 //
 //  Paste into your Google Sheet: Extensions > Apps Script, replace everything, Save.
 //  PINs live in Project Settings > Script properties (never in this code):
@@ -361,21 +361,43 @@ function getBatches_() {
   return sh;
 }
 
-function batchRows_() {
+// Batches grows by dozens of rows a day, so never read the whole tab:
+// look at one narrow column first, then read only the rows that matter.
+function parseBatch_(r, rowNum) {
+  let counts = {}, extras = [];
+  try { counts = JSON.parse(r[4] || '{}'); } catch (e) {}
+  try { extras = JSON.parse(r[5] || '[]'); } catch (e) {}
+  return { row: rowNum, savedAt: r[0] instanceof Date ? r[0].toISOString() : String(r[0] || ''), date: dateKey_(r[1]),
+           name: String(r[2] || ''), id: String(r[3] || ''), counts: counts, extras: extras, removed: String(r[6] || ''),
+           type: String(r[7] || '') === 'Waste' ? 'waste' : 'produced' };
+}
+
+// Rows (2-based) whose column `col` matches test(value).
+function batchRowsWhere_(col, test) {
   const sh = ss_().getSheetByName(BATCHES_NAME);
-  if (!sh || sh.getLastRow() < 2) return [];
-  return sh.getRange(2, 1, sh.getLastRow() - 1, BATCHES_HEADER.length).getValues().map(function (r, i) {
-    let counts = {}, extras = [];
-    try { counts = JSON.parse(r[4] || '{}'); } catch (e) {}
-    try { extras = JSON.parse(r[5] || '[]'); } catch (e) {}
-    return { row: i + 2, savedAt: r[0] instanceof Date ? r[0].toISOString() : String(r[0] || ''), date: dateKey_(r[1]),
-             name: String(r[2] || ''), id: String(r[3] || ''), counts: counts, extras: extras, removed: String(r[6] || ''),
-             type: String(r[7] || '') === 'Waste' ? 'waste' : 'produced' };
-  });
+  if (!sh || sh.getLastRow() < 2) return { sh: sh, rows: [] };
+  const vals = sh.getRange(2, col, sh.getLastRow() - 1, 1).getValues();
+  const rows = [];
+  for (let i = 0; i < vals.length; i++) if (test(vals[i][0])) rows.push(i + 2);
+  return { sh: sh, rows: rows };
+}
+
+function readBatchRows_(sh, rows) {
+  if (!rows.length) return [];
+  // A day's entries sit together, so one block read covers them.
+  const first = rows[0], last = rows[rows.length - 1];
+  const block = sh.getRange(first, 1, last - first + 1, BATCHES_HEADER.length).getValues();
+  return rows.map(function (r) { return parseBatch_(block[r - first], r); });
+}
+
+function batchById_(id) {
+  const f = batchRowsWhere_(4, function (v) { return String(v) === id; });
+  return f.rows.length ? readBatchRows_(f.sh, f.rows.slice(-1))[0] : null;
 }
 
 function batchesFor_(date) {
-  return batchRows_().filter(function (b) { return b.date === date; })
+  const f = batchRowsWhere_(2, function (v) { return dateKey_(v) === date; });
+  return readBatchRows_(f.sh, f.rows)
     .map(function (b) { return { id: b.id, type: b.type, savedAt: b.savedAt, name: b.name, counts: b.counts, extras: b.extras, removed: b.removed }; });
 }
 
@@ -449,7 +471,7 @@ function addBatch_(data) {
     if (!BATCH_RE.test(id)) return { ok: false, error: 'bad_batch' };
     const sh = getSheet_();
     // Sent twice (slow Wi-Fi, tapped again): add it only once.
-    if (batchRows_().some(function (b) { return b.id === id; })) {
+    if (batchById_(id)) {
       const r = findRow_(sh, date, type);
       return { ok: true, duplicate: true, record: r ? readRow_(sh, r, header_(sh)) : null, batches: batchesFor_(date) };
     }
@@ -491,8 +513,8 @@ function removeBatch_(data) {
     const date = dateKey_(data.date);
     const name = String(data.preparedBy || '').trim().slice(0, 80);
     if (!name) return { ok: false, error: 'no_name' };
-    const b = batchRows_().filter(function (x) { return x.id === String(data.batchId || '') && x.date === date; })[0];
-    if (!b) return { ok: false, error: 'not_found' };
+    const b = batchById_(String(data.batchId || ''));
+    if (!b || b.date !== date) return { ok: false, error: 'not_found' };
     const sh = getSheet_();
     const btype = b.type === 'waste' ? 'Waste' : 'Produced';
     if (b.removed) {
