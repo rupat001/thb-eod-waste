@@ -125,14 +125,15 @@ header.top{border-top:6px solid var(--accent)}
 .modebar small{display:block;font-family:var(--body);font-weight:500;font-size:.78rem;letter-spacing:0;opacity:.9}
 .tabs button#tab_produced[aria-selected="false"]{color:var(--pro)}
 .tabs button#tab_waste[aria-selected="false"]{color:var(--was)}
-.row .last{flex:none;display:grid;justify-items:center;gap:1px;min-width:66px;padding:4px 8px;border-radius:10px;border:1px dashed var(--line);line-height:1.1;text-align:center}
+.row .last{flex:none;display:grid;justify-items:center;gap:1px;min-width:66px;width:88px;padding:4px 8px;border-radius:10px;border:1px dashed var(--line);line-height:1.1;text-align:center}
 .row .last span{font-size:.66rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
 .row .last b{font-size:1.2rem;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums}
-.row .last b.minus{color:var(--warn)}
+.row .last small.minus{color:var(--warn);font-weight:700}
+.row .last small.after{color:var(--accent);font-weight:800;font-size:.8rem}
 .row .last small{font-size:.7rem;color:var(--muted);white-space:nowrap}
-@media (max-width:380px){.row .last{min-width:54px;padding:3px 5px}.row .last b{font-size:1.05rem}}
+@media (max-width:380px){.row .last{width:78px;min-width:0;padding:3px 4px}.row .last b{font-size:1.05rem}}
 @media (min-width:700px){
-  .row .last{min-width:62px;padding:4px 6px}.row .last b{font-size:1.3rem}
+  .row .last{width:96px;padding:4px 6px}.row .last b{font-size:1.3rem}
 }
 .row.neg .step input{border-color:var(--warn);background:var(--warn-soft);color:var(--warn)}
 .mlist li.neg b{color:var(--warn)}
@@ -280,9 +281,9 @@ input[type=date]::-webkit-date-and-time-value{text-align:left}
   </form>
 </div>
 
-<script src="config.js?v=2026-11-12.2"></script>
-<script src="items.js?v=2026-11-12.2"></script>
-<script src="common.js?v=2026-11-12.2"></script>
+<script src="config.js?v=2026-11-13.1"></script>
+<script src="items.js?v=2026-11-13.1"></script>
+<script src="common.js?v=2026-11-13.1"></script>
 <script>
 // Item list: items.js.  Sheet link + start date: config.js.  Shared helpers: common.js.
 // Item list: the Sheet's Items tab (set on the Manager page). Until it loads, use the last copy
@@ -439,15 +440,18 @@ function paintRow(key){
   const v=counts[key]||0;
   r.classList.toggle("has",v!==0);r.classList.toggle("neg",v<0);
   const lastEl=r.querySelector(".last");
-  let L=lastMap[mode][key];
-  // Saved before entries were tracked one by one: show the saved total instead.
-  if(!L&&state[mode].totals[key])L={n:state[mode].totals[key],t:null,who:null,old:true};
-  lastEl.hidden=!L;
-  if(L&&L.old){lastEl.textContent="";const a=document.createElement("span");a.textContent="Saved";const nb=document.createElement("b");nb.textContent=String(L.n);
-    const tm=document.createElement("small");tm.textContent="earlier";lastEl.title="Saved earlier today (total)";lastEl.append(a,nb,tm)}
-  else if(L){lastEl.textContent="";const a=document.createElement("span");a.textContent="Last";
-    const nb=document.createElement("b");nb.textContent=(L.n>0&&mode==="produced"?"+":"")+L.n;if(L.n<0)nb.className="minus";
-    const tm=document.createElement("small");tm.textContent=fmtTime(L.t);lastEl.title="Last saved by "+(L.who||"?")+" at "+fmtTime(L.t);lastEl.append(a,nb,tm)}
+  // Box: the day's TOTAL so far (big), the last entry under it, or what the total becomes while typing.
+  const T=state[mode].totals[key]||0, L=lastMap[mode][key];
+  lastEl.hidden=!(T||L||v);
+  if(!lastEl.hidden){lastEl.textContent="";
+    const a=document.createElement("span");a.textContent="Total";
+    const nb=document.createElement("b");nb.textContent=String(T);
+    const tm=document.createElement("small");
+    if(v){tm.textContent="→ "+(T+v);tm.className=v<0?"after minus":"after"}
+    else if(L){tm.textContent=(L.n>0?"+":"")+L.n+" · "+fmtTime(L.t).replace(/\s?([AP])M$/i,(m,x)=>x.toLowerCase());if(L.n<0)tm.className="minus"}
+    else tm.textContent="today";
+    lastEl.title=L?"Last entry: "+(L.n>0?"+":"")+L.n+" by "+(L.who||"?")+" at "+fmtTime(L.t):"Total for the day";
+    lastEl.append(a,nb,tm)}
 }
 function isDirty(m){
   const s=state[m];
@@ -679,7 +683,7 @@ addEventListener("scroll",()=>{if(!spyRaf)spyRaf=requestAnimationFrame(()=>{spyR
 // ---------- staying up to date (store iPad is left open all day) ----------
 // version.json says which build is live. If it's newer, reload once nobody is mid-entry.
 // The ?v= in the address makes the iPad fetch the new page instead of its saved copy.
-const BUILD="2026-11-12.2";
+const BUILD="2026-11-13.1";
 async function checkUpdate(){
   try{
     const j=await (await fetch("version.json?t="+Date.now(),{cache:"no-store"})).json();
