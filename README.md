@@ -73,6 +73,12 @@ while someone has unsaved numbers.
   version → Deploy. Same `/exec` link, takes effect right away.
 - **Sheet data:** File → Version history in Google Sheets, or the History tab.
 
+## Settings (Manager page > Settings)
+
+- How long a shared iPad remembers the person's name (or ask every save).
+- What the Review page opens with (7 / 14 / 30 days / since start).
+- Change the staff or manager PIN (stored in Script properties, never shown on a page).
+
 ## PINs
 
 Set in Apps Script → Project Settings → Script properties: `STAFF_PIN`, `MANAGER_PIN`.

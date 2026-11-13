@@ -84,10 +84,23 @@ td.hi{color:var(--warn);font-weight:700}
 .kv{display:grid;gap:4px;font-size:.86rem}
 .kv b{font-weight:600}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:.9rem;z-index:8;max-width:calc(100% - 32px)}
-.views{display:inline-grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:3px;max-width:360px;width:100%}
+.views{display:inline-grid;grid-template-columns:1fr 1fr 1fr;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:3px;max-width:460px;width:100%}
 .views button{border:0;background:transparent;border-radius:8px;min-height:40px;padding:8px 12px;font-weight:600;color:var(--muted);cursor:pointer}
 .views button[aria-selected="true"]{background:var(--accent);color:var(--accent-fg)}
-body.items-mode .counts{display:none}
+body.items-mode .counts,body.settings-mode .counts{display:none}
+#settingsView .wrap{display:grid;gap:16px;padding-block:14px 40px}
+.cat.set{padding-bottom:4px}
+.sethead{padding:14px 16px 4px}
+.sethead h2{font-family:var(--display);font-weight:800;font-size:1.2rem;margin:0}
+.setrow{display:grid;gap:6px;padding:10px 16px 14px;border-top:1px solid var(--line)}
+.sethead+.setrow{border-top:0}
+.setrow label{font-weight:600}
+.setrow select{max-width:340px;min-height:44px;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 10px;font:inherit;color:var(--fg)}
+.setrow .note{margin:0}
+.pinpair{display:flex;flex-wrap:wrap;gap:8px}
+.pinpair input{flex:1 1 130px;min-width:0;max-width:200px;min-height:44px;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 10px;font-size:1.1rem;letter-spacing:.2em;color:var(--fg)}
+.pinpair .btn{flex:0 0 auto}
+.pinpair input::placeholder{letter-spacing:0;font-size:.95rem}
 .cat{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
 .cathead{display:flex;align-items:center;gap:8px;padding:12px 12px 10px 16px;border-bottom:1px solid var(--line)}
 .cathead input{flex:1;min-width:0;font-family:var(--display);font-weight:800;font-size:1.15rem;border:1px solid transparent;background:transparent;border-radius:8px;padding:6px 8px;color:var(--fg)}
@@ -152,8 +165,9 @@ body.items-mode .counts{display:none}
       </div>
     </div>
     <div class="views" role="tablist" aria-label="Manager pages">
-      <button type="button" role="tab" id="v_review" aria-selected="true">Review days</button>
+      <button type="button" role="tab" id="v_review" aria-selected="true">Review</button>
       <button type="button" role="tab" id="v_items" aria-selected="false">Items</button>
+      <button type="button" role="tab" id="v_settings" aria-selected="false">Settings</button>
     </div>
     <div class="counts" id="counts"><span class="chip">Loading…</span></div>
   </div>
@@ -189,6 +203,54 @@ body.items-mode .counts{display:none}
     </div>
   </div>
 </main>
+<main id="settingsView" hidden>
+  <div class="wrap">
+    <p class="note">Changes here save right away and reach every phone and iPad the next time the form loads a day.</p>
+    <section class="cat set">
+      <div class="sethead"><h2>Staff form</h2></div>
+      <div class="setrow">
+        <label for="s_name">Remember the person's name on a shared iPad for</label>
+        <select id="s_name">
+          <option value="0">Don't remember (ask every save)</option>
+          <option value="15">15 minutes</option><option value="30">30 minutes</option>
+          <option value="60">1 hour</option><option value="120">2 hours</option>
+          <option value="240">4 hours</option><option value="480">8 hours</option>
+        </select>
+        <p class="note">After this long with nobody using the form, the name box clears so the next person types their own name.</p>
+      </div>
+    </section>
+    <section class="cat set">
+      <div class="sethead"><h2>Manager page</h2></div>
+      <div class="setrow">
+        <label for="s_review">Review page opens with</label>
+        <select id="s_review"><option value="7">Last 7 days</option><option value="14">Last 14 days</option><option value="30">Last 30 days</option><option value="all">Since start</option></select>
+        <p class="note">What the Review page opens with. You can still change it there any time.</p>
+      </div>
+    </section>
+    <section class="cat set">
+      <div class="sethead"><h2>PINs</h2></div>
+      <form class="setrow pinrow" id="pf_staff" autocomplete="off">
+        <label for="p_staff1">New staff PIN</label>
+        <div class="pinpair">
+          <input type="password" id="p_staff1" inputmode="numeric" pattern="[0-9]*" maxlength="8" placeholder="New PIN" aria-label="New staff PIN">
+          <input type="password" id="p_staff2" inputmode="numeric" pattern="[0-9]*" maxlength="8" placeholder="Type it again" aria-label="New staff PIN again">
+          <button type="submit" class="btn primary">Change staff PIN</button>
+        </div>
+        <p class="note">Every phone and iPad will ask for the new PIN once. 4–8 numbers.</p>
+      </form>
+      <form class="setrow pinrow" id="pf_manager" autocomplete="off">
+        <label for="p_manager1">New manager PIN</label>
+        <div class="pinpair">
+          <input type="password" id="p_manager1" inputmode="numeric" pattern="[0-9]*" maxlength="8" placeholder="New PIN" aria-label="New manager PIN">
+          <input type="password" id="p_manager2" inputmode="numeric" pattern="[0-9]*" maxlength="8" placeholder="Type it again" aria-label="New manager PIN again">
+          <button type="submit" class="btn primary">Change manager PIN</button>
+        </div>
+        <p class="note">This device switches to the new PIN right away; other devices with the Manager page will ask for it.</p>
+      </form>
+    </section>
+  </div>
+</main>
+
 <div class="toast" id="toast" role="status" hidden></div>
 
 <div class="pingate" id="pinGate" hidden role="dialog" aria-modal="true" aria-labelledby="pinTitle">
@@ -219,14 +281,15 @@ const pin=EOD.makePin("eodw_mgr_pin");
 let showPin=function(){};
 const API=EOD.makeApi(pin,function(m){showPin(m)});
 const api=API.call;
-showPin=EOD.wirePinGate(pin,async function(){const r=await api("list",{days:1});return !!r.ok},function(){load();if(!$("itemsView").hidden&&!itemsLoaded)loadItems()});
-let rows=[], open=new Set(), busy=false, loadSeq=0;
+showPin=EOD.wirePinGate(pin,async function(){const r=await api("list",{days:1});return !!r.ok},function(){load();if(!$("itemsView").hidden&&!itemsLoaded)loadItems();if(!$("settingsView").hidden)loadSettings()});
+let rows=[], open=new Set(), busy=false, loadSeq=0, settingsRead=false;
 
 async function load(){
   if(!pin.get()){showPin();return}
   $("refresh").disabled=true;$("err").hidden=true;
   try{
     const seq=++loadSeq;
+    if(!settingsRead){settingsRead=true;try{const st=await api("settings");if(st&&st.ok){mgrSettings=st.settings;$("range").value=st.settings.reviewDays}}catch(e){if(e.pin)throw e}}
     const [r,it]=await Promise.all([api("list",{days:rangeDays()}),api("items").catch(()=>null)]);
     if(seq!==loadSeq)return; // a newer load (e.g. range changed) is on its way; ignore this older answer
     if(!r.ok)throw new Error(r.error);
@@ -452,25 +515,60 @@ $("itemsSave").onclick=async()=>{
   finally{itemsSaving=false;$("itemsSave").disabled=false;$("itemsSave").textContent="Save items"}
 };
 
+const VIEWS={review:{main:"reviewView",tab:"v_review",title:"Manager review"},items:{main:"itemsView",tab:"v_items",title:"Items"},settings:{main:"settingsView",tab:"v_settings",title:"Settings"}};
 function setView(v){
-  const items=v==="items";
-  if(!items&&itemsDirty()){toast("Save or discard your item changes first.");return}
-  $("reviewView").hidden=items;$("itemsView").hidden=!items;document.body.classList.toggle("items-mode",items);
-  $("v_review").setAttribute("aria-selected",!items);$("v_items").setAttribute("aria-selected",items);
-  $("title").textContent=items?"Items":"Manager review";
-  document.querySelector(".tools").style.visibility=items?"hidden":"visible";
-  if(items&&!itemsLoaded&&pin.get())loadItems();
-  try{history.replaceState(null,"",items?"#items":location.pathname+location.search)}catch(e){}
+  if(v!=="items"&&!$("itemsView").hidden&&itemsDirty()){toast("Save or discard your item changes first.");return}
+  for(const k in VIEWS){const on=k===v;$(VIEWS[k].main).hidden=!on;$(VIEWS[k].tab).setAttribute("aria-selected",on)}
+  document.body.classList.toggle("items-mode",v==="items");document.body.classList.toggle("settings-mode",v==="settings");
+  $("title").textContent=VIEWS[v].title;
+  document.querySelector(".tools").style.display=v==="review"?"":"none";
+  if(v==="items"&&!itemsLoaded&&pin.get())loadItems();
+  if(v==="settings"&&pin.get())loadSettings();
+  try{history.replaceState(null,"",v==="review"?location.pathname+location.search:"#"+v)}catch(e){}
 }
 $("v_review").onclick=()=>setView("review");
 $("v_items").onclick=()=>setView("items");
+$("v_settings").onclick=()=>setView("settings");
+
+// ================= Settings =================
+let mgrSettings=null;
+async function loadSettings(){
+  try{const r=await api("settings");if(!r.ok)throw new Error(r.error);mgrSettings=r.settings;
+    $("s_name").value=String(r.settings.nameMinutes);$("s_review").value=r.settings.reviewDays}
+  catch(e){if(!e.pin)toast("Couldn't load settings. Check the connection.")}
+}
+async function saveSetting(key,val,el){
+  el.disabled=true;
+  try{const r=await api("setSettings",{settings:{[key]:val}});
+    if(r.ok){mgrSettings=r.settings;toast("Saved.");if(key==="reviewDays"&&$("range").value!==val){$("range").value=val;load()}}
+    else{toast("Couldn't save that setting.");if(mgrSettings){$("s_name").value=String(mgrSettings.nameMinutes);$("s_review").value=mgrSettings.reviewDays}}}
+  catch(e){if(!e.pin)toast("Couldn't reach the Sheet. Try again.")}
+  finally{el.disabled=false}
+}
+$("s_name").onchange=e=>saveSetting("nameMinutes",Number(e.target.value),e.target);
+$("s_review").onchange=e=>saveSetting("reviewDays",e.target.value,e.target);
+function wirePinForm(which){
+  const f=$("pf_"+which),a=$("p_"+which+"1"),b=$("p_"+which+"2"),btn=f.querySelector("button");
+  f.onsubmit=async e=>{e.preventDefault();
+    const p=a.value.trim();
+    if(!/^\d{4,8}$/.test(p)){toast("A PIN is 4 to 8 numbers.");a.focus();return}
+    if(p!==b.value.trim()){toast("The two PINs don't match.");b.focus();return}
+    if(!confirm("Change the "+which+" PIN?"+(which==="staff"?" Every phone and iPad will ask staff for the new PIN.":"")))return;
+    btn.disabled=true;
+    try{const r=await api("setPin",{which,newPin:p});
+      if(r.ok){a.value="";b.value="";if(which==="manager")pin.set(p);toast((which==="staff"?"Staff":"Manager")+" PIN changed.",5000)}
+      else toast({same_as_other:"Staff and manager PINs must be different.",bad_pin_format:"A PIN is 4 to 8 numbers."}[r.error]||"Couldn't change the PIN.",5000)}
+    catch(e){if(!e.pin)toast("Couldn't reach the Sheet. Try again.")}
+    finally{btn.disabled=false}};
+}
+wirePinForm("staff");wirePinForm("manager");
 addEventListener("beforeunload",e=>{if(itemsDirty()){e.preventDefault();e.returnValue=""}});
 
 $("refresh").onclick=load;
 $("range").onchange=load;
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&pin.get()&&$("itemsView").hidden)load()});
 load();
-if(location.hash==="#items")setView("items");
+if(location.hash==="#items")setView("items");else if(location.hash==="#settings")setView("settings");
 </script>
 </body>
 </html>

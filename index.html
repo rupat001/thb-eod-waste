@@ -281,9 +281,9 @@ input[type=date]::-webkit-date-and-time-value{text-align:left}
   </form>
 </div>
 
-<script src="config.js?v=2026-11-13.1"></script>
-<script src="items.js?v=2026-11-13.1"></script>
-<script src="common.js?v=2026-11-13.1"></script>
+<script src="config.js?v=2026-11-13.2"></script>
+<script src="items.js?v=2026-11-13.2"></script>
+<script src="common.js?v=2026-11-13.2"></script>
 <script>
 // Item list: items.js.  Sheet link + start date: config.js.  Shared helpers: common.js.
 // Item list: the Sheet's Items tab (set on the Manager page). Until it loads, use the last copy
@@ -550,7 +550,7 @@ async function loadDay(date){
     const data=await api("load",{date});
     if(seq!==loadSeq)return;
     if(!data.ok)throw new Error(data.error||"load failed");
-    loadedDate=date;loadFailed=false;followToday=(date===todayStr());$("loadErr").hidden=true;applyDay(data);
+    loadedDate=date;loadFailed=false;followToday=(date===todayStr());$("loadErr").hidden=true;applySettings(data.settings);applyDay(data);
   }catch(e){
     if(seq!==loadSeq)return;
     // Never show an empty form as if nothing was saved: saving it would wipe the real numbers.
@@ -584,11 +584,18 @@ $("guardSave").onclick=async()=>{$("guard").hidden=true;
   if(pendingDate){$("date").value=pendingDate;loadDay(pendingDate);pendingDate=null}};
 
 // ---------- name (shared iPad: forget it after 2 hours of no use) ----------
-const NAME_KEY="eodw_name", IDLE_MS=2*60*60*1000;
+// How long is set on Manager page > Settings (0 = ask every time). Last known value is kept on the device.
+const NAME_KEY="eodw_name";
+let IDLE_MS=(function(){try{const m=localStorage.getItem("eodw_name_min");if(m!==null&&!isNaN(m))return Number(m)*60000}catch(e){}return 2*60*60*1000})();
+function applySettings(st){
+  if(!st||typeof st.nameMinutes!=="number")return;
+  IDLE_MS=st.nameMinutes*60000;try{localStorage.setItem("eodw_name_min",String(st.nameMinutes))}catch(e){}
+  if(!IDLE_MS){storeName("")}else forgetIfIdle();
+}
 let lastActive=Date.now(), lastStored=0;
-function readName(){try{const o=JSON.parse(localStorage.getItem(NAME_KEY)||"null");if(o&&o.n&&Date.now()-o.t<IDLE_MS){lastActive=o.t;return o.n}}catch(e){}try{localStorage.removeItem(NAME_KEY)}catch(e){}return ""}
-function storeName(n){lastStored=Date.now();try{n?localStorage.setItem(NAME_KEY,JSON.stringify({n:n,t:lastStored})):localStorage.removeItem(NAME_KEY)}catch(e){}}
-function forgetIfIdle(){if(Date.now()-lastActive>=IDLE_MS&&$("who").value){$("who").value="";storeName("")}}
+function readName(){if(!IDLE_MS)return "";try{const o=JSON.parse(localStorage.getItem(NAME_KEY)||"null");if(o&&o.n&&Date.now()-o.t<IDLE_MS){lastActive=o.t;return o.n}}catch(e){}try{localStorage.removeItem(NAME_KEY)}catch(e){}return ""}
+function storeName(n){lastStored=Date.now();if(!IDLE_MS)n="";try{n?localStorage.setItem(NAME_KEY,JSON.stringify({n:n,t:lastStored})):localStorage.removeItem(NAME_KEY)}catch(e){}}
+function forgetIfIdle(){if(IDLE_MS&&Date.now()-lastActive>=IDLE_MS&&$("who").value){$("who").value="";storeName("")}}
 function touch(){forgetIfIdle();lastActive=Date.now();const n=$("who").value.trim();if(n&&lastActive-lastStored>60000)storeName(n)}
 ["pointerdown","keydown"].forEach(ev=>addEventListener(ev,touch,{capture:true,passive:true}));
 $("who").addEventListener("change",()=>storeName($("who").value.trim()));
@@ -656,6 +663,7 @@ async function save(){
     if(m===mode)$("notes").value="";
     applyTab(m,data.record,data.batches.filter(b=>(b.type||"produced")===m),false);render();
     toast((m==="produced"?"Added to production for ":"Waste saved for ")+fmtDate(d));
+    if(!IDLE_MS)$("who").value=""; // "ask every time": the next person types their own name
     return true;
   }catch(e){if(!e.pin)toast("Couldn't confirm the save. Check your connection and tap Save again.");return false}
   finally{saving=false;btn.disabled=false;paintStatus()}
@@ -683,7 +691,7 @@ addEventListener("scroll",()=>{if(!spyRaf)spyRaf=requestAnimationFrame(()=>{spyR
 // ---------- staying up to date (store iPad is left open all day) ----------
 // version.json says which build is live. If it's newer, reload once nobody is mid-entry.
 // The ?v= in the address makes the iPad fetch the new page instead of its saved copy.
-const BUILD="2026-11-13.1";
+const BUILD="2026-11-13.2";
 async function checkUpdate(){
   try{
     const j=await (await fetch("version.json?t="+Date.now(),{cache:"no-store"})).json();
