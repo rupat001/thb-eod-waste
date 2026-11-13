@@ -1,5 +1,5 @@
 // ============================================================
-//  EOD Waste / Production — Google Apps Script (API version 2, rev 8)
+//  EOD Waste / Production — Google Apps Script (API version 2, rev 9)
 //
 //  Paste into your Google Sheet: Extensions > Apps Script, replace everything, Save.
 //  PINs live in Project Settings > Script properties (never in this code):
@@ -183,6 +183,13 @@ function doPost(e) {
         return json_(setStatus_(data));
       case 'addBatch': return json_(addBatch_(data));
       case 'removeBatch': return json_(removeBatch_(data));
+      case 'settings': return json_({ ok: true, settings: settings_() });
+      case 'setSettings':
+        if (role !== 'manager') return json_({ ok: false, error: 'manager_only' });
+        return json_(setSettings_(data));
+      case 'setPin':
+        if (role !== 'manager') return json_({ ok: false, error: 'manager_only' });
+        return json_(setPin_(data));
       case 'items': return json_(items_());
       case 'setItems':
         if (role !== 'manager') return json_({ ok: false, error: 'manager_only' });
@@ -206,6 +213,7 @@ function load_(data) {
     if (row) out[t[1]] = readRow_(sh, row, h);
   });
   out.batches = batchesFor_(date);
+  out.settings = settings_();
   return out;
 }
 
@@ -330,6 +338,58 @@ function setStatus_(data) {
     sh.getRange(rowNum, COL.status + 1).setValue(status);
     SpreadsheetApp.flush();
     return { ok: true, record: readRow_(sh, rowNum, h) };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ============================================================
+//  SETTINGS (Manager page > Settings). Stored in Script property SETTINGS.
+//  PINs stay in STAFF_PIN / MANAGER_PIN and are never sent to any page.
+// ============================================================
+const NAME_MINUTES = [0, 15, 30, 60, 120, 240, 480];
+const REVIEW_RANGES = ['7', '14', '30', 'all'];
+
+function settings_() {
+  let s = {};
+  try { s = JSON.parse(PropertiesService.getScriptProperties().getProperty('SETTINGS') || '{}') || {}; } catch (e) {}
+  return {
+    nameMinutes: NAME_MINUTES.indexOf(Number(s.nameMinutes)) >= 0 ? Number(s.nameMinutes) : 120,
+    reviewDays: REVIEW_RANGES.indexOf(String(s.reviewDays)) >= 0 ? String(s.reviewDays) : '14'
+  };
+}
+
+// { settings: { nameMinutes?, reviewDays? } } -> { ok, settings }
+function setSettings_(data) {
+  const cur = settings_();
+  const inp = data.settings || {};
+  if ('nameMinutes' in inp) {
+    if (NAME_MINUTES.indexOf(Number(inp.nameMinutes)) < 0) return { ok: false, error: 'bad_setting' };
+    cur.nameMinutes = Number(inp.nameMinutes);
+  }
+  if ('reviewDays' in inp) {
+    if (REVIEW_RANGES.indexOf(String(inp.reviewDays)) < 0) return { ok: false, error: 'bad_setting' };
+    cur.reviewDays = String(inp.reviewDays);
+  }
+  PropertiesService.getScriptProperties().setProperty('SETTINGS', JSON.stringify(cur));
+  return { ok: true, settings: cur };
+}
+
+// { which: 'staff'|'manager', newPin } -> { ok }   (caller already proved the manager PIN)
+function setPin_(data) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const which = data.which === 'manager' ? 'MANAGER_PIN' : data.which === 'staff' ? 'STAFF_PIN' : '';
+    const pin = String(data.newPin || '');
+    if (!which) return { ok: false, error: 'bad_setting' };
+    if (!/^\d{4,8}$/.test(pin)) return { ok: false, error: 'bad_pin_format' };
+    const props = PropertiesService.getScriptProperties();
+    const other = String(props.getProperty(which === 'STAFF_PIN' ? 'MANAGER_PIN' : 'STAFF_PIN') || '');
+    if (pin === other) return { ok: false, error: 'same_as_other' };
+    props.setProperty(which, pin);
+    CacheService.getScriptCache().remove('pinFails');
+    return { ok: true };
   } finally {
     lock.releaseLock();
   }
